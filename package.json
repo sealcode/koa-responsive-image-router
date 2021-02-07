@@ -1,0 +1,17 @@
+{
+    "name": "responsive-image-module",
+    "version": "0.0.1",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "Arkadiusz Wieczorek",
+    "license": "ISC",
+    "dependencies": {
+        "koa": "^2.13.1",
+        "koa-router": "^10.0.0",
+        "koa-static": "^5.0.0"
+    }
+}
