@@ -1,7 +1,15 @@
-class ResponsiveImageRouter {
-    constructor() {}
+import Router from "koa-router";
 
-    image() {}
+export default class ResponsiveImageRouter {
+    constructor() {
+        this.router = new Router();
+    }
 
-    getRoutes() {}
+    image({path, resolutions, quality, sizes_attr, alt}) {
+        
+    }
+
+    getRoutes() {
+        return this.router.routes()
+    }
 }
