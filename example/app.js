@@ -13,7 +13,7 @@ const router = new Router();
 
 // user settings
 const tmp_dir = "/tmp/image-cache";
-const sizes = [320, 600, 900, 1600, 1920];
+const resolutions = [320, 600, 900, 1600, 1920];
 const original_file = {
     filename: "image",
     type: "png",
@@ -28,14 +28,14 @@ const hashedName = generateImageName({
 
 async function init() {
     const { filename, type } = original_file;
-    const size = sizes[sizes.length - 1];
+    const resolution = resolutions[resolutions.length - 1];
 
-    await getImage({ filename, size, type });
+    await getImage({ filename, resolution, type });
     try {
-        return getCachedImage({ filename, size, type });
+        return getCachedImage({ filename, resolution, type });
     } catch {
-        const buffer = await generateImage({ filename, size, type });
-        saveImage({ filename, size, type, buffer });
+        const buffer = await generateImage({ filename, resolution, type });
+        saveImage({ filename, resolution, type, buffer });
         return buffer;
     }
 }
@@ -52,8 +52,30 @@ init();
 // 	srcset="/files/16864/clock-demo-200px.png 1x, /files/16797/clock-demo-400px.png 2x">`;
 // });
 
-router.get("/images/:filename/:size/:type", async (ctx) => {
-    if (sizes.find((size) => size === parseInt(ctx.params.size))) {
+// image_router.image()
+function image({ path, resolutions, quality, extensions, alt }) {
+    let sources = "";
+
+    for (let i = 0; i < resolutions.length; i++) {
+        for (let j = 0; j < extensions.length; j++) {
+            const filename = `${hashedName}-${resolutions[i]}.${extensions[j]}`;
+            sources += `<source srcset="${path}/${filename}" media="(min-width: ${resolutions[i]}px)">`;
+        }
+    }
+
+    return `
+        <picture>
+            ${sources}
+            <img src="" alt="">
+        </picture>`;
+}
+
+router.get("/images/:filename/:resolution/:type", async (ctx) => {
+    if (
+        resolutions.find(
+            (resolution) => resolution === parseInt(ctx.params.resolution)
+        )
+    ) {
         ctx.body = await getImage(ctx.params);
         ctx.type = `image/${ctx.params.type}`;
     } else {
@@ -61,12 +83,12 @@ router.get("/images/:filename/:size/:type", async (ctx) => {
     }
 });
 
-async function getImage({ filename, size, type }) {
+async function getImage({ filename, resolution, type }) {
     try {
-        return getCachedImage({ filename, size, type });
+        return getCachedImage({ filename, resolution, type });
     } catch {
-        const buffer = await generateImage({ filename, size, type });
-        saveImage({ filename, size, type, buffer });
+        const buffer = await generateImage({ filename, resolution, type });
+        saveImage({ filename, resolution, type, buffer });
         return buffer;
     }
 }
@@ -80,33 +102,33 @@ function generateImageName({ filename, type }) {
         .digest("hex");
 }
 
-function getCachedImage({ filename, size, type }) {
+function getCachedImage({ filename, resolution, type }) {
     const file = fs.readFileSync(
-        `${__dirname}/tmp/image-cache/${hashedName}-${size}.${type}`
+        `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`
     );
     return Buffer.from(file, "base64");
 }
 
-async function saveImage({ filename, size, type, buffer }) {
-    await createEmptyImage({ filename, type, size });
+async function saveImage({ filename, resolution, type, buffer }) {
+    await createEmptyImage({ filename, type, resolution });
     sharp(buffer).toFile(
-        `${__dirname}/tmp/image-cache/${hashedName}-${size}.${type}`
+        `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`
     );
 }
 
-async function createEmptyImage({ filename, type, size }) {
+async function createEmptyImage({ filename, type, resolution }) {
     fs.closeSync(
         fs.openSync(
-            `${__dirname}/tmp/image-cache/${hashedName}-${size}.${type}`,
+            `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`,
             "w"
         )
     );
 }
 
-async function generateImage({ filename, type, size }) {
+async function generateImage({ filename, type, resolution }) {
     // get original image
     const pixelArray = await sharp(`${__dirname}/${filename}.${type}`)
-        .resize(parseInt(size))
+        .toResize(parseInt(resolution))
         .toFormat(type)
         .toBuffer();
     return pixelArray;
