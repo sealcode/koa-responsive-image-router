@@ -85,10 +85,10 @@ router.get("/images/:filename/:resolution/:type", async (ctx) => {
 
 async function getImage({ filename, resolution, type }) {
     try {
-        return getCachedImage({ filename, resolution, type });
+        return getCachedImage({ resolution, type });
     } catch {
         const buffer = await generateImage({ filename, resolution, type });
-        saveImage({ filename, resolution, type, buffer });
+        saveImage({ resolution, type, buffer });
         return buffer;
     }
 }
@@ -102,21 +102,21 @@ function generateImageName({ filename, type }) {
         .digest("hex");
 }
 
-function getCachedImage({ filename, resolution, type }) {
+function getCachedImage({ resolution, type }) {
     const file = fs.readFileSync(
         `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`
     );
     return Buffer.from(file, "base64");
 }
 
-async function saveImage({ filename, resolution, type, buffer }) {
-    await createEmptyImage({ filename, type, resolution });
+async function saveImage({ resolution, type, buffer }) {
+    await createEmptyImage({ type, resolution });
     sharp(buffer).toFile(
         `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`
     );
 }
 
-async function createEmptyImage({ filename, type, resolution }) {
+async function createEmptyImage({ type, resolution }) {
     fs.closeSync(
         fs.openSync(
             `${__dirname}/tmp/image-cache/${hashedName}-${resolution}.${type}`,
