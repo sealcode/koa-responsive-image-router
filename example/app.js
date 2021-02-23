@@ -4,7 +4,7 @@ import sharp from "sharp";
 import crypto from "crypto";
 import { statSync } from "fs";
 import { access, mkdir, copyFile, readFile } from "fs/promises";
-import { dirname, extname, basename } from "path";
+import { dirname, extname, basename, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,8 +15,9 @@ const router = new Router();
 
 const temp_dir = "/tmp/image-cache";
 const resolutions = [320, 600, 900, 1600, 1920];
-const original_file_path = "./image.png";
+const original_file_path = resolve(__dirname, "image.png");
 const hash = getHash(original_file_path);
+
 
 async function init() {
     await generateDirectory();
@@ -28,8 +29,7 @@ function getHash(original_file_path) {
     return crypto
         .createHash("md5")
         .update(
-            basename(original_file_path) +
-                statSync(`${__dirname}/${original_file_path}`).atime
+            basename(original_file_path) + statSync(original_file_path).atime
         )
         .digest("hex");
 }
@@ -104,8 +104,8 @@ app.use(router.routes()).use(router.allowedMethods()).listen(3005);
 
 // tbc
 
-function image({ resolutions, hash }) {
-    const destination = `/images/${hash}`;
+function image({ resolutions, sizes_attr, path }) {
+    const destination = `/images/${getHash(path)}`;
     const extensions = ["jpg", "png", "avif", "webp"];
     let html = "<picture>";
 
@@ -127,7 +127,7 @@ function image({ resolutions, hash }) {
             resolutions[parseInt(resolutions.length / 2, 10)]
         }.${extensions[j]}"\n`;
 
-        html += `sizes="(max-width: 900px) 100vw, 900px"\ntype="image/${
+        html += `sizes="${sizes_attr}"\ntype="image/${
             extensions[j] === "jpg" ? "jpeg" : extensions[j]
         }"\n/>\n`;
     }
@@ -138,4 +138,10 @@ function image({ resolutions, hash }) {
     return html;
 }
 
-// console.log(image({ resolutions, hash }));
+console.log(
+    image({
+        resolutions,
+        sizes_attr: "(max-width: 900px) 100vw, 900px",
+        path: resolve(__dirname, "image.png"),
+    })
+);
