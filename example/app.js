@@ -2,8 +2,8 @@ import Koa from "koa";
 import Router from "koa-router";
 import sharp from "sharp";
 import crypto from "crypto";
-import { statSync, readFileSync, closeSync, openSync } from "fs";
-import { access, mkdir, copyFile } from "fs/promises";
+import { statSync } from "fs";
+import { access, mkdir, copyFile, readFile } from "fs/promises";
 import { dirname, extname, basename } from "path";
 import { fileURLToPath } from "url";
 
@@ -57,6 +57,30 @@ async function copySourceFile() {
     await copyFile(source, destination);
 }
 
+async function getImage({ hash, resolution, type }) {
+    try {
+        return Buffer.from(
+            await readFile(`${getHashedPath(hash)}/${resolution}.${type}`),
+            "base64"
+        );
+    } catch {
+        const buffer = await generateImage({ hash, resolution, type });
+        saveImage({ hash, resolution, type, buffer });
+        return buffer;
+    }
+}
+
+function saveImage({ hash, resolution, type, buffer }) {
+    sharp(buffer).toFile(`${getHashedPath(hash)}/${resolution}.${type}`);
+}
+
+async function generateImage({ hash, resolution, type }) {
+    return await sharp(`${getHashedPath(hash)}/original-file`)
+        .resize(parseInt(resolution))
+        .toFormat(type)
+        .toBuffer();
+}
+
 router.get("/images/:hash/:filename", async (ctx) => {
     const { hash, filename } = ctx.params;
     const resolution = parseInt(filename.split(".")[0]);
@@ -76,54 +100,42 @@ router.get("/images/:hash/:filename", async (ctx) => {
     }
 });
 
-async function getImage({ hash, resolution, type }) {
-    try {
-        return getCachedImage({ hash, resolution, type });
-    } catch {
-        const buffer = await generateImage({ hash, resolution, type });
-        saveImage({ hash, resolution, type, buffer });
-        return buffer;
-    }
-}
-
-function getCachedImage({ hash, resolution, type }) {
-    const file = readFileSync(`${getHashedPath(hash)}/${resolution}.${type}`);
-    return Buffer.from(file, "base64");
-}
-
-async function saveImage({ hash, resolution, type, buffer }) {
-    await createEmptyImage({ hash, type, resolution });
-    sharp(buffer).toFile(`${getHashedPath(hash)}/${resolution}.${type}`);
-}
-
-async function createEmptyImage({ hash, type, resolution }) {
-    closeSync(openSync(`${getHashedPath(hash)}/${resolution}.${type}`, "w"));
-}
-
-async function generateImage({ hash, resolution, type }) {
-    return await sharp(`${getHashedPath(hash)}/original-file`)
-        .resize(parseInt(resolution))
-        .toFormat(type)
-        .toBuffer();
-}
-
 app.use(router.routes()).use(router.allowedMethods()).listen(3005);
 
 // tbc
 
-function image({ path, resolutions, quality, extensions, alt }) {
-    let sources = "";
+function image({ resolutions, hash }) {
+    const destination = `/images/${hash}`;
+    const extensions = ["jpg", "png", "avif", "webp"];
+    let html = "<picture>";
 
-    for (let i = 0; i < resolutions.length; i++) {
-        for (let j = 0; j < extensions.length; j++) {
-            const filename = `${hash}-${resolutions[i]}.${extensions[j]}`;
-            sources += `<source srcset="${path}/${filename}" media="(min-width: ${resolutions[i]}px)">`;
+    for (let j = 0; j < extensions.length; j++) {
+        html += '\n<source\nsrcset="\n';
+
+        for (let i = 0; i < resolutions.length; i++) {
+            html += `${destination}/${resolutions[i]}.${extensions[j]} ${resolutions[i]}w`;
+
+            if (i !== resolutions.length - 1) {
+                html += ",";
+            } else {
+                html += `\n"`;
+            }
+            html += `\n`;
         }
+
+        html += `src="${destination}${
+            resolutions[parseInt(resolutions.length / 2, 10)]
+        }.${extensions[j]}"\n`;
+
+        html += `sizes="(max-width: 900px) 100vw, 900px"\ntype="image/${
+            extensions[j] === "jpg" ? "jpeg" : extensions[j]
+        }"\n/>\n`;
     }
 
-    return `
-        <picture>
-            ${sources}
-            <img src="" alt="">
-        </picture>`;
+    html += `<img src="${destination}${
+        resolutions[parseInt(resolutions.length / 2, 10)]
+    }.jpg" /></picture>`;
+    return html;
 }
+
+// console.log(image({ resolutions, hash }));
