@@ -1,23 +1,29 @@
 {
-    "name": "responsive-image-module",
-    "version": "0.0.1",
-    "description": "",
-    "main": "index.js",
-    "type": "module",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "nodemon example/app.js"
-    },
-    "author": "Arkadiusz Wieczorek",
-    "license": "ISC",
-    "dependencies": {
-        "@koa/router": "^10.0.0",
-        "koa": "^2.13.1",
-        "koa-router": "^10.0.0",
-        "sharp": "^0.27.1"
-    },
-    "devDependencies": {
-        "@types/koa__router": "^8.0.4",
-        "@types/sharp": "^0.27.1"
-    }
+	"name": "responsive-image-module",
+	"version": "0.0.1",
+	"description": "",
+	"main": "lib/index.js",
+	"scripts": {
+		"test": "ts-node test/app.ts",
+		"build": "tsc",
+		"prepublish": "npm run build"
+	},
+	"author": "Arkadiusz Wieczorek",
+	"license": "ISC",
+	"dependencies": {
+		"@koa/router": "^10.0.0",
+		"koa": "^2.13.1",
+		"koa-router": "^10.0.0",
+		"sharp": "^0.27.1"
+	},
+	"devDependencies": {
+		"@types/koa__router": "^8.0.4",
+		"@types/sharp": "^0.27.1",
+		"@typescript-eslint/eslint-plugin": "^4.16.1",
+		"eslint": "^7.21.0",
+		"eslint-config-prettier": "^8.1.0",
+		"eslint-plugin-prettier": "^3.3.1",
+		"prettier": "^2.2.1"
+	},
+	"types": "./@types/index.d.ts"
 }

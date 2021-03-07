@@ -1,0 +1,19 @@
+{
+	  "linters": {
+	    "prettier": {
+	      "type": "prettier",
+	      "bin": "./node_modules/.bin/prettier",
+	      "include": [
+	        "(\\.[tj]s$)",
+	        "(\\.s?css$)"
+	      ]
+	    },
+	    "eslint": {
+	      "type": "eslint",
+	      "include": [
+	        "(src/.*\\.ts$)",
+	        "(src/.*\\.js$)"
+	      ]
+	    }
+	  }
+	}
