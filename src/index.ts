@@ -13,7 +13,7 @@ function isCorrectExtension(type: unknown): type is correctExtension {
 	return extensions.includes(type as string);
 }
 
-export default class ResponsiveImageRouter extends Router {
+export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
 	hashToResolutions: Record<string, number[]> = {};
 

@@ -1,11 +1,14 @@
 import Koa from "koa";
 import Router from "@koa/router";
-import ResponsiveImageRouter from "../src/index";
+import KoaResponsiveImageRouter from "../src/index";
 
 const app = new Koa();
 const router = new Router();
 
-const imageRouter = new ResponsiveImageRouter("/static/images", "/tmp/images");
+const imageRouter = new KoaResponsiveImageRouter(
+	"/static/images",
+	"/tmp/images"
+);
 
 router.get("/", async (ctx) => {
 	ctx.body = `<p>it works</p> ${await imageRouter.image({

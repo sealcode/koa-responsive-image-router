@@ -1,7 +1,7 @@
 /// <reference types="koa__router" />
 import Router from "@koa/router";
 import { Middleware } from "koa";
-export default class ResponsiveImageRouter extends Router {
+export default class KoaResponsiveImageRouter extends Router {
     static_path: string;
     tmp_dir: string;
     router: Router;
