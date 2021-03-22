@@ -1,12 +1,12 @@
 {
-	"name": "responsive-image-module",
+	"name": "koa-responsive-image-router",
 	"version": "0.0.1",
-	"description": "",
+	"description": "Koa router that helps to serve responsive images in an SSR app",
 	"main": "lib/index.js",
 	"scripts": {
 		"test": "ts-node test/app.ts",
 		"build": "tsc",
-		"prepublish": "npm run build"
+		"prepare": "npm run build"
 	},
 	"author": "Arkadiusz Wieczorek",
 	"license": "ISC",
