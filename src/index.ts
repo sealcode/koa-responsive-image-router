@@ -9,7 +9,7 @@ import { Middleware } from "koa";
 type correctExtension = "jpeg" | "png" | "avif" | "webp";
 
 function isCorrectExtension(type: unknown): type is correctExtension {
-	const extensions = ["jpeg", "png", "avif", "webp"];
+	const extensions = ["avif", "webp", "jpeg", "png"];
 	return extensions.includes(type as string);
 }
 
