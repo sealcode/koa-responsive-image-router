@@ -63,7 +63,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		await this.copySourceFile(path, hash);
 
 		const destination = `${this.static_path}/${hash}`;
-		const extensions = ["jpeg", "png", "avif", "webp"];
+		const extensions = ["avif", "webp", "jpeg", "png"];
 		let html = "<picture>";
 
 		for (let j = 0; j < extensions.length; j++) {
