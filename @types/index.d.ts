@@ -6,11 +6,13 @@ export default class KoaResponsiveImageRouter extends Router {
     tmp_dir: string;
     router: Router;
     hashToResolutions: Record<string, number[]>;
+    hashToLossless: Record<string, boolean>;
     constructor(static_path: string, tmp_dir: string);
-    image({ resolutions, sizes_attr, path, }: {
+    image({ resolutions, sizes_attr, path, lossless, }: {
         resolutions: number[];
         sizes_attr: string;
         path: string;
+        lossless: boolean;
     }): Promise<string>;
     getRoutes(): Middleware;
     private getHash;
