@@ -96,7 +96,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			html += `sizes="${sizes_attr}"\ntype="image/${extensions[j]}"\n/>\n`;
 		}
 
-		html += `<img src="${destination}/${
+		html += `<img loading="lazy" src="${destination}/${
 			resolutions[Math.round(resolutions.length / 2)]
 		}.jpeg" /></picture>`;
 		return html;
