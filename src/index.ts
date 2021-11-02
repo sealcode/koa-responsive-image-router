@@ -57,7 +57,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		resolutions: number[];
 		sizes_attr: string;
 		path: string;
-		lossless: boolean;
+		lossless?: boolean;
 	}): Promise<string> {
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
