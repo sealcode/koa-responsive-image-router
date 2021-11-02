@@ -13,6 +13,8 @@ function isCorrectExtension(type: unknown): type is correctExtension {
 	return extensions.includes(type as string);
 }
 
+const MONTH = 60 * 60 * 24 * 30;
+
 export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
 	hashToResolutions: Record<string, number[]> = {};
@@ -39,6 +41,7 @@ export default class KoaResponsiveImageRouter extends Router {
 					await access(destination);
 					ctx.body = await this.getImage({ hash, resolution, type });
 					ctx.type = `image/${type}`;
+					ctx.set("Cache-Control", `immutable,max-age=${MONTH}`);
 				} catch (error) {
 					ctx.response.status = 404;
 				}
