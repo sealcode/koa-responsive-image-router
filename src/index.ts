@@ -68,10 +68,9 @@ export default class KoaResponsiveImageRouter extends Router {
 
 		const destination = `${this.static_path}/${hash}`;
 		const extensions = [
-			"avif",
 			"webp",
 			"png",
-			...(lossless ? [] : ["jpg"]),
+			...(lossless ? [] : ["jpg", "avif"]),
 		];
 		let html = "<picture>";
 
@@ -192,7 +191,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		const lossless = this.hashToLossless[hash];
 		return await sharp(`${this.getHashedPath(hash)}/original-file`)
 			.resize(resolution)
-			.toFormat(type, lossless ? { quality: 100, lossless: true } : {})
+			.toFormat(type, lossless ? { lossless: true } : {})
 			.toBuffer();
 	}
 }
