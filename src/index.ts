@@ -48,11 +48,6 @@ export default class KoaResponsiveImageRouter extends Router {
 					await access(destination);
 					ctx.body = await this.getImage({ hash, resolution, type });
 					ctx.type = `image/${type}`;
-					ctx.set(
-						"Cache-Control",
-						`public, max-age=${MONTH}, immutable`
-					);
-					ctx.set("etag", `${hash}:${filename}`);
 				} catch (error) {
 					ctx.response.status = 404;
 				}
