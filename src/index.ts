@@ -16,6 +16,7 @@ function isCorrectExtension(type: unknown): type is correctExtension {
 export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
 	hashToResolutions: Record<string, number[]> = {};
+	hashToLossless: Record<string, boolean> = {};
 
 	constructor(public static_path: string, public tmp_dir: string) {
 		super();
@@ -51,19 +52,27 @@ export default class KoaResponsiveImageRouter extends Router {
 		resolutions,
 		sizes_attr,
 		path,
+		lossless = false,
 	}: {
 		resolutions: number[];
 		sizes_attr: string;
 		path: string;
+		lossless: boolean;
 	}): Promise<string> {
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
+		this.hashToLossless[hash] = lossless;
 
 		await this.generateDirectory(path, hash);
 		await this.copySourceFile(path, hash);
 
 		const destination = `${this.static_path}/${hash}`;
-		const extensions = ["avif", "webp", "jpeg", "png"];
+		const extensions = [
+			"avif",
+			"webp",
+			"png",
+			...(lossless ? [] : ["jpg"]),
+		];
 		let html = "<picture>";
 
 		for (let j = 0; j < extensions.length; j++) {
@@ -180,9 +189,10 @@ export default class KoaResponsiveImageRouter extends Router {
 		resolution: number;
 		type: correctExtension;
 	}) {
+		const lossless = this.hashToLossless[hash];
 		return await sharp(`${this.getHashedPath(hash)}/original-file`)
 			.resize(resolution)
-			.toFormat(type)
+			.toFormat(type, lossless ? { quality: 100 } : {})
 			.toBuffer();
 	}
 }
