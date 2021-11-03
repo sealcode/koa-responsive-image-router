@@ -20,6 +20,7 @@ export default class KoaResponsiveImageRouter extends Router {
 	hashToResolutions: Record<string, number[]> = {};
 	hashToLossless: Record<string, boolean> = {};
 	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
+	hashToFileCopied: Record<string, Promise<void> | undefined> = {};
 
 	constructor(public static_path: string, public tmp_dir: string) {
 		super();
@@ -89,14 +90,19 @@ export default class KoaResponsiveImageRouter extends Router {
 		this.hashToResolutions[hash] = resolutions;
 		this.hashToLossless[hash] = lossless;
 
+		if (!this.hashToFileCopied[hash]) {
+			this.hashToFileCopied[hash] = this.generateDirectory(
+				hash
+			).then(() => this.copySourceFile(path, hash));
+		}
+
+		await this.hashToFileCopied[hash];
+
 		const metadata = await this.getMetadata(hash);
 
 		resolutions = resolutions.filter(
 			(width) => width <= (metadata.width || Infinity)
 		);
-
-		await this.generateDirectory(path, hash);
-		await this.copySourceFile(path, hash);
 
 		const destination = `${this.static_path}/${hash}`;
 		const extensions = [
@@ -157,7 +163,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		return `${this.tmp_dir}/${hash}`;
 	}
 
-	private async generateDirectory(original_file_path: string, hash: string) {
+	private async generateDirectory(hash: string) {
 		const destination = `${this.tmp_dir}/${hash}`;
 		try {
 			await access(destination);
