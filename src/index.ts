@@ -19,6 +19,7 @@ export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
 	hashToResolutions: Record<string, number[]> = {};
 	hashToLossless: Record<string, boolean> = {};
+	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
 
 	constructor(public static_path: string, public tmp_dir: string) {
 		super();
@@ -38,7 +39,7 @@ export default class KoaResponsiveImageRouter extends Router {
 				isCorrectExtension(type)
 			) {
 				ctx.set("Cache-Control", `public, max-age=${MONTH}`);
-				ctx.set("etag", `W/"${hash}:${filename}"`);
+				ctx.set("etag", `"${hash}:${filename}"`);
 				ctx.status = 200; //otherwise the `.fresh` check won't work, see https://koajs.com/
 				if (ctx.fresh) {
 					ctx.status = 304;
@@ -57,6 +58,18 @@ export default class KoaResponsiveImageRouter extends Router {
 		});
 	}
 
+	async getMetadata(hash: string): Promise<sharp.Metadata> {
+		if (this.hashToMetadata[hash]) {
+			return this.hashToMetadata[hash] as Promise<sharp.Metadata>;
+		} else {
+			const metadata = sharp(
+				`${this.getHashedPath(hash)}/original-file`
+			).metadata();
+			this.hashToMetadata[hash] = metadata;
+			return metadata;
+		}
+	}
+
 	async image({
 		resolutions,
 		sizes_attr,
@@ -73,6 +86,12 @@ export default class KoaResponsiveImageRouter extends Router {
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
 		this.hashToLossless[hash] = lossless;
+
+		const metadata = await this.getMetadata(hash);
+
+		resolutions = resolutions.filter(
+			(width) => width <= (metadata.width || Infinity)
+		);
 
 		await this.generateDirectory(path, hash);
 		await this.copySourceFile(path, hash);
@@ -106,7 +125,9 @@ export default class KoaResponsiveImageRouter extends Router {
 			html += `sizes="${sizes_attr}"\ntype="image/${extensions[j]}"\n/>\n`;
 		}
 
-		html += `<img ${lazy ? `loading="lazy"` : ""} src="${destination}/${
+		html += `<img ${lazy ? `loading="lazy"` : ""} width="${
+			metadata.width
+		}" height="${metadata.height}" src="${destination}/${
 			resolutions[Math.round(resolutions.length / 2)]
 		}.jpeg" /></picture>`;
 		return html;
