@@ -76,12 +76,14 @@ export default class KoaResponsiveImageRouter extends Router {
 		path,
 		lossless = false,
 		lazy = true,
+		img_style,
 	}: {
 		resolutions: number[];
 		sizes_attr: string;
 		path: string;
 		lossless?: boolean;
 		lazy?: boolean;
+		img_style?: string;
 	}): Promise<string> {
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
@@ -127,7 +129,7 @@ export default class KoaResponsiveImageRouter extends Router {
 
 		html += `<img ${lazy ? `loading="lazy"` : ""} width="${
 			metadata.width
-		}" height="${metadata.height}" src="${destination}/${
+		}" height="${metadata.height}" ${img_style || ""}src="${destination}/${
 			resolutions[Math.round(resolutions.length / 2)]
 		}.jpeg" /></picture>`;
 		return html;

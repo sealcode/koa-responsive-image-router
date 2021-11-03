@@ -11,12 +11,13 @@ export default class KoaResponsiveImageRouter extends Router {
     hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined>;
     constructor(static_path: string, tmp_dir: string);
     getMetadata(hash: string): Promise<sharp.Metadata>;
-    image({ resolutions, sizes_attr, path, lossless, lazy, }: {
+    image({ resolutions, sizes_attr, path, lossless, lazy, img_style, }: {
         resolutions: number[];
         sizes_attr: string;
         path: string;
         lossless?: boolean;
         lazy?: boolean;
+        img_style?: string;
     }): Promise<string>;
     getRoutes(): Middleware;
     private getHash;
