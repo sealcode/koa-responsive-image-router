@@ -130,7 +130,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		html += `<img ${lazy ? `loading="lazy"` : ""} width="${
 			metadata.width
 		}" height="${metadata.height}" ${
-			img_style ? `style="${img_style}` : ""
+			img_style ? `style="${img_style}"` : ""
 		}src="${destination}/${
 			resolutions[Math.round(resolutions.length / 2)]
 		}.jpeg" /></picture>`;
