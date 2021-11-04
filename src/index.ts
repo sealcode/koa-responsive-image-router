@@ -39,7 +39,7 @@ export default class KoaResponsiveImageRouter extends Router {
 				type !== undefined &&
 				isCorrectExtension(type)
 			) {
-				ctx.set("Cache-Control", `public, max-age=${MONTH}`);
+				ctx.set("Cache-Control", `public, max-age=${MONTH}, immutable`);
 				ctx.set("etag", `"${hash}:${filename}"`);
 				ctx.status = 200; //otherwise the `.fresh` check won't work, see https://koajs.com/
 				if (ctx.fresh) {
