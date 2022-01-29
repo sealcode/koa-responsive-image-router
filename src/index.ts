@@ -6,6 +6,8 @@ import { access, mkdir, copyFile, readFile, stat } from "fs/promises";
 import { extname, basename } from "path";
 import { Middleware } from "koa";
 
+import { guessResolutions } from "./guessResolutions";
+
 type correctExtension = "jpeg" | "png" | "avif" | "webp";
 
 function isCorrectExtension(type: unknown): type is correctExtension {
@@ -52,10 +54,14 @@ export default class KoaResponsiveImageRouter extends Router {
 		sizes_attr,
 		path,
 	}: {
-		resolutions: number[];
+		resolutions?: number[];
 		sizes_attr: string;
 		path: string;
 	}): Promise<string> {
+		if (!resolutions || !resolutions.length) {
+			resolutions = guessResolutions(sizes_attr);
+		}
+
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
 
