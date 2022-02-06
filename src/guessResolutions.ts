@@ -73,7 +73,7 @@ const getRanges = ({
 	let min_conditions_count = 0,
 		max_conditions_count = 0;
 
-	let ranges: Ranges = {
+	const ranges: Ranges = {
 		calculated: [],
 		screen: [],
 	};
