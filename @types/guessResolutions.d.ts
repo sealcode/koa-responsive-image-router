@@ -1,9 +1,9 @@
 declare type resolutionGuessOptions = {
-	min_resolution?: number;
-	max_resolution?: number;
+	min_viewport_size?: number;
+	max_viewport_size?: number;
 };
 declare const guessResolutions: (
 	sizes_attr: string,
-	{ min_resolution, max_resolution }?: resolutionGuessOptions
+	{ min_viewport_size, max_viewport_size }?: resolutionGuessOptions
 ) => number[];
 export { guessResolutions };
