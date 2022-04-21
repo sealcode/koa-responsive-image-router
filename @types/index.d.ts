@@ -4,14 +4,16 @@ import sharp from "sharp";
 import { Middleware } from "koa";
 export default class KoaResponsiveImageRouter extends Router {
 	static_path: string;
-	tmp_dir: string;
 	router: Router;
 	hashToResolutions: Record<string, number[]>;
 	hashToLossless: Record<string, boolean>;
 	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined>;
-	hashToFileCopied: Record<string, Promise<void> | undefined>;
-	constructor(static_path: string, tmp_dir: string);
+	hashToOriginalPath: Record<string, string>;
+	nginxWarningDisplayed: boolean;
+	constructor(static_path: string);
 	getMetadata(hash: string): Promise<sharp.Metadata>;
+	private makeImageURL;
+	makeNginxConfig(cache_path: string, max_size_mb: number): string;
 	image({
 		resolutions,
 		sizes_attr,
@@ -29,10 +31,5 @@ export default class KoaResponsiveImageRouter extends Router {
 	}): Promise<string>;
 	getRoutes(): Middleware;
 	private getHash;
-	private getHashedPath;
-	private generateDirectory;
-	private copySourceFile;
-	private getImage;
-	private saveImage;
 	private generateImage;
 }

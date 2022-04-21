@@ -2,7 +2,7 @@ import Router from "@koa/router";
 import sharp from "sharp";
 import crypto from "crypto";
 
-import { access, mkdir, copyFile, readFile, stat } from "fs/promises";
+import { stat } from "fs/promises";
 import { extname, basename } from "path";
 import { Middleware } from "koa";
 
@@ -17,21 +17,45 @@ function isCorrectExtension(type: unknown): type is correctExtension {
 
 const MONTH = 60 * 60 * 24 * 30;
 
+function encodeFilename({
+	width,
+	originalPath,
+	format,
+}: {
+	width: number;
+	originalPath: string;
+	format: string;
+}): string {
+	const filename = basename(originalPath)
+		.slice(0, -1 * extname(originalPath).length)
+		.replace(/\./g, "_");
+	return `${filename}.${width}.${format}`;
+}
+
 export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
 	hashToResolutions: Record<string, number[]> = {};
 	hashToLossless: Record<string, boolean> = {};
 	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
-	hashToFileCopied: Record<string, Promise<void> | undefined> = {};
+	hashToOriginalPath: Record<string, string> = {};
+	nginxWarningDisplayed = false;
 
-	constructor(public static_path: string, public tmp_dir: string) {
+	constructor(public static_path: string) {
 		super();
 		this.router = new Router();
 
 		this.router.get("/:hash/:filename", async (ctx) => {
+			if (!this.nginxWarningDisplayed && !ctx.headers["x-proxied"]) {
+				console.log(
+					"Request for an image probably did not go through a caching proxy, use the following NGINX config to fix that:"
+				);
+
+				console.log(this.makeNginxConfig("/run/nginx-cache", 1024));
+				this.nginxWarningDisplayed = true;
+			}
+
 			const { hash, filename } = ctx.params;
-			const resolution = parseInt(filename.split(".")[0]);
-			const destination = `${this.getHashedPath(hash)}`;
+			const resolution = parseInt(filename.split(".")[1]);
 			const type = extname(filename).split(".").pop();
 
 			if (
@@ -49,10 +73,14 @@ export default class KoaResponsiveImageRouter extends Router {
 					return;
 				}
 				try {
-					await access(destination);
-					ctx.body = await this.getImage({ hash, resolution, type });
+					ctx.body = await this.generateImage({
+						hash,
+						resolution,
+						type,
+					});
 					ctx.type = `image/${type}`;
 				} catch (error) {
+					console.error(error);
 					ctx.response.status = 404;
 				}
 			} else {
@@ -65,12 +93,45 @@ export default class KoaResponsiveImageRouter extends Router {
 		if (this.hashToMetadata[hash]) {
 			return this.hashToMetadata[hash] as Promise<sharp.Metadata>;
 		} else {
-			const metadata = sharp(
-				`${this.getHashedPath(hash)}/original-file`
-			).metadata();
+			const metadata = sharp(this.hashToOriginalPath[hash]).metadata();
 			this.hashToMetadata[hash] = metadata;
 			return metadata;
 		}
+	}
+
+	private makeImageURL({
+		hash,
+		width,
+		format,
+	}: {
+		hash: string;
+		width: number;
+		format: string;
+	}): string {
+		return `${this.static_path}/${hash}/${encodeFilename({
+			width,
+			originalPath: this.hashToOriginalPath[hash],
+			format,
+		})}`;
+	}
+
+	makeNginxConfig(cache_path: string, max_size_mb: number): string {
+		return `http {
+	proxy_cache_path ${cache_path} keys_zone=cache:10m levels=1:2 inactive=90d max_size=${max_size_mb}m use_temp_path=off;
+
+	server {
+		# ....
+		location ${this.static_path} {
+			proxy_cache cache;
+			proxy_cache_lock on;
+			proxy_cache_valid 200 90d;
+			proxy_cache_use_stale updating;
+			proxy_cache_background_update on;
+			proxy_set_header X-Proxied true;
+			proxy_pass http://localhost:8080;
+		}
+	}
+}`;
 	}
 
 	async image({
@@ -95,22 +156,13 @@ export default class KoaResponsiveImageRouter extends Router {
 		const hash = await this.getHash(path, resolutions);
 		this.hashToResolutions[hash] = resolutions;
 		this.hashToLossless[hash] = lossless;
-
-		if (!this.hashToFileCopied[hash]) {
-			this.hashToFileCopied[hash] = this.generateDirectory(
-				hash
-			).then(() => this.copySourceFile(path, hash));
-		}
-
-		await this.hashToFileCopied[hash];
-
+		this.hashToOriginalPath[hash] = path;
 		const metadata = await this.getMetadata(hash);
 
 		resolutions = resolutions.filter(
 			(width) => width <= (metadata.width || Infinity)
 		);
 
-		const destination = `${this.static_path}/${hash}`;
 		const extensions = [
 			"webp",
 			"png",
@@ -122,7 +174,11 @@ export default class KoaResponsiveImageRouter extends Router {
 			html += '\n<source\nsrcset="\n';
 
 			for (let i = 0; i < resolutions.length; i++) {
-				html += `${destination}/${resolutions[i]}.${extensions[j]} ${resolutions[i]}w`;
+				html += `${this.makeImageURL({
+					hash,
+					width: resolutions[i],
+					format: extensions[j],
+				})} ${resolutions[i]}w`;
 
 				if (i !== resolutions.length - 1) {
 					html += ",";
@@ -132,20 +188,24 @@ export default class KoaResponsiveImageRouter extends Router {
 				html += `\n`;
 			}
 
-			html += `src="${destination}/${
-				resolutions[Math.round(resolutions.length / 2)]
-			}.${extensions[j]}"\n`;
+			html += `src="${this.makeImageURL({
+				hash,
+				width: resolutions[Math.round(resolutions.length / 2)],
+				format: extensions[j],
+			})}\n`;
 
 			html += `sizes="${sizes_attr}"\ntype="image/${extensions[j]}"\n/>\n`;
 		}
 
 		html += `<img ${lazy ? `loading="lazy"` : ""} width="${
-			metadata.width
-		}" height="${metadata.height}" ${
+			metadata.width || 100
+		}" height="${metadata.height || 100}" ${
 			img_style ? `style="${img_style}"` : ""
-		}src="${destination}/${
-			resolutions[Math.round(resolutions.length / 2)]
-		}.jpeg" /></picture>`;
+		}src="${this.makeImageURL({
+			hash,
+			width: resolutions[Math.round(resolutions.length / 2)],
+			format: "jpeg",
+		})}" /></picture>`;
 		return html;
 	}
 
@@ -165,68 +225,6 @@ export default class KoaResponsiveImageRouter extends Router {
 			.digest("hex");
 	}
 
-	private getHashedPath(hash: string) {
-		return `${this.tmp_dir}/${hash}`;
-	}
-
-	private async generateDirectory(hash: string) {
-		const destination = `${this.tmp_dir}/${hash}`;
-		try {
-			await access(destination);
-		} catch {
-			try {
-				await mkdir(destination, { recursive: true });
-			} catch (error) {
-				console.log("directory exist");
-			}
-		}
-	}
-
-	private async copySourceFile(original_file_path: string, hash: string) {
-		const source = original_file_path;
-		const destination = `${this.getHashedPath(hash)}/original-file`;
-		await copyFile(source, destination);
-	}
-
-	private async getImage({
-		hash,
-		resolution,
-		type,
-	}: {
-		hash: string;
-		resolution: number;
-		type: correctExtension;
-	}): Promise<Buffer> {
-		try {
-			return Buffer.from(
-				((await readFile(
-					`${this.getHashedPath(hash)}/${resolution}.${type}`
-				)) as unknown) as string,
-				"base64" as BufferEncoding
-			);
-		} catch {
-			const buffer = await this.generateImage({ hash, resolution, type });
-			this.saveImage({ hash, resolution, type, buffer });
-			return buffer;
-		}
-	}
-
-	private saveImage({
-		hash,
-		resolution,
-		type,
-		buffer,
-	}: {
-		hash: string;
-		resolution: number;
-		type: string;
-		buffer: Buffer;
-	}) {
-		void sharp(buffer).toFile(
-			`${this.getHashedPath(hash)}/${resolution}.${type}`
-		);
-	}
-
 	private async generateImage({
 		hash,
 		resolution,
@@ -237,7 +235,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		type: correctExtension;
 	}) {
 		const lossless = this.hashToLossless[hash];
-		return await sharp(`${this.getHashedPath(hash)}/original-file`)
+		return await sharp(this.hashToOriginalPath[hash])
 			.resize(resolution)
 			.toFormat(type, lossless ? { lossless: true } : {})
 			.toBuffer();
