@@ -1,0 +1,10 @@
+example/
+.log
+src
+.arcconfig
+.arclint
+.editorconfig
+.eslintrc.js
+.prettierrc
+test/app.ts
+

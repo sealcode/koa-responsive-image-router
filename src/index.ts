@@ -17,6 +17,54 @@ function isCorrectExtension(type: unknown): type is correctExtension {
 
 const MONTH = 60 * 60 * 24 * 30;
 
+enum imgClass {
+	horizontal = "horizontal",
+	vertical = "vertical",
+	square = "square",
+	landscape = "landscape",
+	portrait = "portrait",
+
+	ratioCrossedThreshold = "ratio-crossed-threshold",
+	ratioAboveThreshold = "ratio-above-threshold",
+	ratioBelowThreshold = "ratio-below-threshold",
+}
+
+function joinClasses(...classes: string[]): string {
+	return classes.join(" ");
+}
+
+function makeImgClasses({
+	width,
+	height,
+	target_ratio,
+	ratio_diff_threshold,
+}: {
+	width: number;
+	height: number;
+	target_ratio: number;
+	ratio_diff_threshold: number;
+}): string {
+	let classes = "";
+
+	if (width > height)
+		classes = joinClasses(imgClass.horizontal, imgClass.landscape);
+	else if (width === height) classes = joinClasses(imgClass.square);
+	else classes = joinClasses(imgClass.vertical, imgClass.portrait);
+
+	const ratio = width / height;
+	const ratio_difference = ratio - target_ratio;
+
+	if (Math.abs(ratio_difference) > ratio_diff_threshold) {
+		classes = joinClasses(classes, imgClass.ratioCrossedThreshold);
+
+		if (ratio_difference > 0)
+			classes = joinClasses(classes, imgClass.ratioAboveThreshold);
+		else classes = joinClasses(classes, imgClass.ratioBelowThreshold);
+	}
+
+	return classes;
+}
+
 function encodeFilename({
 	width,
 	originalPath,
@@ -141,6 +189,8 @@ export default class KoaResponsiveImageRouter extends Router {
 		lossless = false,
 		lazy = true,
 		img_style,
+		target_ratio = 16 / 9,
+		ratio_diff_threshold = 0.2,
 	}: {
 		resolutions?: number[];
 		sizes_attr: string;
@@ -148,6 +198,8 @@ export default class KoaResponsiveImageRouter extends Router {
 		lossless?: boolean;
 		lazy?: boolean;
 		img_style?: string;
+		target_ratio?: number;
+		ratio_diff_threshold?: number;
 	}): Promise<string> {
 		if (!resolutions || !resolutions.length) {
 			resolutions = guessResolutions(sizes_attr);
@@ -158,6 +210,10 @@ export default class KoaResponsiveImageRouter extends Router {
 		this.hashToLossless[hash] = lossless;
 		this.hashToOriginalPath[hash] = path;
 		const metadata = await this.getMetadata(hash);
+		const imgDimensions = {
+			width: metadata.width || 100,
+			height: metadata.height || 100,
+		};
 
 		resolutions = resolutions.filter(
 			(width) => width <= (metadata.width || Infinity)
@@ -197,9 +253,15 @@ export default class KoaResponsiveImageRouter extends Router {
 			html += `sizes="${sizes_attr}"\ntype="image/${extensions[j]}"\n/>\n`;
 		}
 
-		html += `<img ${lazy ? `loading="lazy"` : ""} width="${
-			metadata.width || 100
-		}" height="${metadata.height || 100}" ${
+		// refer to readme to learn about these classes
+		html += `<img class="${makeImgClasses({
+			width: imgDimensions.width,
+			height: imgDimensions.height,
+			target_ratio,
+			ratio_diff_threshold,
+		})}" ${lazy ? `loading="lazy"` : ""} width="${
+			imgDimensions.width
+		}" height="${imgDimensions.height}" ${
 			img_style ? `style="${img_style}"` : ""
 		}src="${this.makeImageURL({
 			hash,

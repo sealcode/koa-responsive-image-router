@@ -21,6 +21,8 @@ export default class KoaResponsiveImageRouter extends Router {
 		lossless,
 		lazy,
 		img_style,
+		target_ratio,
+		ratio_diff_threshold,
 	}: {
 		resolutions?: number[];
 		sizes_attr: string;
@@ -28,6 +30,8 @@ export default class KoaResponsiveImageRouter extends Router {
 		lossless?: boolean;
 		lazy?: boolean;
 		img_style?: string;
+		target_ratio?: number;
+		ratio_diff_threshold?: number;
 	}): Promise<string>;
 	getRoutes(): Middleware;
 	private getHash;
