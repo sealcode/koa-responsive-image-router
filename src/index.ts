@@ -267,7 +267,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			hash,
 			width: resolutions[Math.round(resolutions.length / 2)],
 			format: "jpeg",
-		})}" /></picture>`;
+		})}" alt="" /></picture>`;
 		return html;
 	}
 
