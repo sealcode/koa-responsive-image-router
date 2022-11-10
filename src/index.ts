@@ -77,7 +77,7 @@ function encodeFilename({
 	const filename = basename(originalPath)
 		.slice(0, -1 * extname(originalPath).length)
 		.replace(/\./g, "_");
-	return `${filename}.${width}.${format}`;
+	return `${filename || "image"}.${width}.${format}`;
 }
 
 export default class KoaResponsiveImageRouter extends Router {
@@ -156,11 +156,12 @@ export default class KoaResponsiveImageRouter extends Router {
 		width: number;
 		format: string;
 	}): string {
-		return `${this.static_path}/${hash}/${encodeFilename({
+		const result = `${this.static_path}/${hash}/${encodeFilename({
 			width,
 			originalPath: this.hashToOriginalPath[hash],
 			format,
 		})}`;
+		return result;
 	}
 
 	makeNginxConfig(cache_path: string, max_size_mb: number): string {
@@ -206,7 +207,6 @@ export default class KoaResponsiveImageRouter extends Router {
 		}
 
 		const hash = await this.getHash(path, resolutions);
-		this.hashToResolutions[hash] = resolutions;
 		this.hashToLossless[hash] = lossless;
 		this.hashToOriginalPath[hash] = path;
 		const metadata = await this.getMetadata(hash);
@@ -215,9 +215,19 @@ export default class KoaResponsiveImageRouter extends Router {
 			height: metadata.height || 100,
 		};
 
+		if (resolutions.length == 0) {
+			resolutions = [imgDimensions.width];
+		}
+
 		resolutions = resolutions.filter(
 			(width) => width <= (metadata.width || Infinity)
 		);
+
+		if (resolutions.length == 0) {
+			resolutions = [imgDimensions.width];
+		}
+
+		this.hashToResolutions[hash] = resolutions;
 
 		const extensions = [
 			"webp",
@@ -227,22 +237,19 @@ export default class KoaResponsiveImageRouter extends Router {
 		let html = "<picture>";
 
 		for (let j = 0; j < extensions.length; j++) {
-			html += '\n<source\nsrcset="\n';
+			html += '\n<source srcset="';
 
-			for (let i = 0; i < resolutions.length; i++) {
-				html += `${this.makeImageURL({
-					hash,
-					width: resolutions[i],
-					format: extensions[j],
-				})} ${resolutions[i]}w`;
-
-				if (i !== resolutions.length - 1) {
-					html += ",";
-				} else {
-					html += `\n"`;
-				}
-				html += `\n`;
-			}
+			html += resolutions
+				.map(
+					(resolution) =>
+						`\n${this.makeImageURL({
+							hash,
+							width: resolution,
+							format: extensions[j],
+						})} ${resolution}w`
+				)
+				.join(",");
+			html += '" ';
 
 			html += `src="${this.makeImageURL({
 				hash,
