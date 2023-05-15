@@ -187,6 +187,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		resolutions,
 		sizes_attr,
 		path,
+		alt,
 		lossless = false,
 		lazy = true,
 		img_style,
@@ -201,6 +202,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		img_style?: string;
 		target_ratio?: number;
 		ratio_diff_threshold?: number;
+		alt?: string;
 	}): Promise<string> {
 		if (!resolutions || !resolutions.length) {
 			resolutions = guessResolutions(sizes_attr);
@@ -274,7 +276,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			hash,
 			width: resolutions[Math.round(resolutions.length / 2)],
 			format: "jpeg",
-		})}" alt="" /></picture>`;
+		})}" alt="${alt}" /></picture>`;
 		return html;
 	}
 
