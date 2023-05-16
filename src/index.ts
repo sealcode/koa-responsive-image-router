@@ -253,11 +253,12 @@ export default class KoaResponsiveImageRouter extends Router {
 				.join(",");
 			html += '" ';
 
-			html += `src="${this.makeImageURL({
-				hash,
-				width: resolutions[Math.round(resolutions.length / 2)],
-				format: extensions[j],
-			})}"\n`;
+			// removed this as this is apparently deprecated
+			// html += `src="${this.makeImageURL({
+			// 	hash,
+			// 	width: resolutions[Math.round(resolutions.length / 2)],
+			// 	format: extensions[j],
+			// })}"\n`;
 
 			html += `sizes="${sizes_attr}"\ntype="image/${extensions[j]}"\n/>\n`;
 		}
@@ -274,7 +275,9 @@ export default class KoaResponsiveImageRouter extends Router {
 			img_style ? `style="${img_style}"` : ""
 		} src="${this.makeImageURL({
 			hash,
-			width: resolutions[Math.round(resolutions.length / 2)],
+			width: resolutions[
+				Math.max(Math.floor(resolutions.length / 2) - 1, 0)
+			],
 			format: "jpeg",
 		})}" alt="${alt}" /></picture>`;
 		return html;
