@@ -14,7 +14,7 @@ export default class KoaResponsiveImageRouter extends Router {
     getMetadata(hash: string): Promise<sharp.Metadata>;
     private makeImageURL;
     makeNginxConfig(cache_path: string, max_size_mb: number): string;
-    image({ resolutions, sizes_attr, path, lossless, lazy, img_style, target_ratio, ratio_diff_threshold, }: {
+    image({ resolutions, sizes_attr, path, alt, lossless, lazy, img_style, target_ratio, ratio_diff_threshold, }: {
         resolutions?: number[];
         sizes_attr: string;
         path: string;
@@ -23,6 +23,7 @@ export default class KoaResponsiveImageRouter extends Router {
         img_style?: string;
         target_ratio?: number;
         ratio_diff_threshold?: number;
+        alt?: string;
     }): Promise<string>;
     getRoutes(): Middleware;
     private getHash;
