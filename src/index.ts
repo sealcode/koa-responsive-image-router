@@ -1,6 +1,8 @@
 import Router from "@koa/router";
 import sharp from "sharp";
 import crypto from "crypto";
+import Queue from "better-queue";
+import os from "os";
 
 import { stat } from "fs/promises";
 import { extname, basename } from "path";
@@ -8,11 +10,19 @@ import { Middleware } from "koa";
 
 import { guessResolutions } from "./guessResolutions";
 
+interface Task {
+	hash: string;
+	resolution: number;
+	fileExtension: string;
+}
+
 type correctExtension = "jpeg" | "png" | "avif" | "webp";
 
-function isCorrectExtension(type: unknown): type is correctExtension {
+function isCorrectExtension(
+	fileExtension: unknown
+): fileExtension is correctExtension {
 	const extensions = ["avif", "webp", "jpeg", "png"];
-	return extensions.includes(type as string);
+	return extensions.includes(fileExtension as string);
 }
 
 const MONTH = 60 * 60 * 24 * 30;
@@ -87,10 +97,34 @@ export default class KoaResponsiveImageRouter extends Router {
 	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
 	hashToOriginalPath: Record<string, string> = {};
 	nginxWarningDisplayed = false;
+	private maxConcurrent: number;
+	private imageQueue: Queue;
 
-	constructor(public static_path: string) {
+	constructor(public static_path: string, maxConcurrent?: number) {
 		super();
 		this.router = new Router();
+
+		const availableCpus = os.cpus().length;
+		const suggestedMaxConcurrent =
+			availableCpus > 1 ? availableCpus - 1 : 1;
+
+		if (
+			maxConcurrent !== undefined &&
+			maxConcurrent > suggestedMaxConcurrent
+		) {
+			console.warn(
+				`Warning: The specified maxConcurrent (${maxConcurrent}) exceeds the recommended limit (${suggestedMaxConcurrent}). Using ${suggestedMaxConcurrent} instead.`
+			);
+			this.maxConcurrent = suggestedMaxConcurrent;
+		} else {
+			this.maxConcurrent =
+				maxConcurrent !== undefined
+					? maxConcurrent
+					: suggestedMaxConcurrent;
+		}
+		this.imageQueue = new Queue(this.processImage.bind(this), {
+			concurrent: this.maxConcurrent,
+		});
 
 		this.router.get("/:hash/:filename", async (ctx) => {
 			if (!this.nginxWarningDisplayed && !ctx.headers["x-proxied"]) {
@@ -104,14 +138,14 @@ export default class KoaResponsiveImageRouter extends Router {
 
 			const { hash, filename } = ctx.params;
 			const resolution = parseInt(filename.split(".")[1]);
-			const type = extname(filename).split(".").pop();
+			const fileExtension = extname(filename).split(".").pop();
 
 			if (
 				this.hashToResolutions[hash].find(
 					(el: number) => el === resolution
 				) &&
-				type !== undefined &&
-				isCorrectExtension(type)
+				fileExtension !== undefined &&
+				isCorrectExtension(fileExtension)
 			) {
 				ctx.set("Cache-Control", `public, max-age=${MONTH}, immutable`);
 				ctx.set("etag", `"${hash}:${filename}"`);
@@ -120,13 +154,20 @@ export default class KoaResponsiveImageRouter extends Router {
 					ctx.status = 304;
 					return;
 				}
+
 				try {
-					ctx.body = await this.generateImage({
-						hash,
-						resolution,
-						type,
-					});
-					ctx.type = `image/${type}`;
+					const imageBuffer = await this.enqueueImageProcessing(
+						this.imageQueue,
+						{
+							hash,
+							resolution,
+							fileExtension,
+						}
+					);
+
+					ctx.body = imageBuffer;
+					ctx.type = `image/${fileExtension}`;
+					ctx.status = 200;
 				} catch (error) {
 					console.error(error);
 					ctx.response.status = 404;
@@ -135,6 +176,55 @@ export default class KoaResponsiveImageRouter extends Router {
 				ctx.response.status = 404;
 			}
 		});
+	}
+
+	private async enqueueImageProcessing(
+		imageQueue: Queue,
+		data: {
+			hash: string;
+			resolution: number;
+			fileExtension: string;
+		}
+	): Promise<Buffer> {
+		return new Promise<Buffer>((resolve, reject) => {
+			imageQueue.push(
+				data,
+				(error: Error | null, result: Buffer | null) => {
+					if (error) {
+						reject(error);
+					} else if (result === null) {
+						reject(
+							new Error(
+								"Image processing resulted in null buffer."
+							)
+						);
+					} else {
+						resolve(result);
+					}
+				}
+			);
+		});
+	}
+
+	async processImage(
+		task: Task,
+		cb: (error: Error | null, result: Buffer | null) => void
+	): Promise<void> {
+		try {
+			const { hash, resolution, fileExtension } = task;
+			if (isCorrectExtension(fileExtension)) {
+				const imageBuffer = await this.generateImage({
+					hash,
+					resolution,
+					fileExtension: fileExtension,
+				});
+				cb(null, imageBuffer);
+			} else {
+				cb(new Error(`Invalid image type: ${fileExtension}`), null);
+			}
+		} catch (error) {
+			cb(error, null);
+		}
 	}
 
 	async getMetadata(hash: string): Promise<sharp.Metadata> {
@@ -279,7 +369,7 @@ export default class KoaResponsiveImageRouter extends Router {
 				Math.max(Math.floor(resolutions.length / 2) - 1, 0)
 			],
 			format: "jpeg",
-		})}" alt="${alt}" /></picture>`;
+		})}" ${alt ? `alt="${alt}"` : ""} /></picture>`;
 		return html;
 	}
 
@@ -302,16 +392,16 @@ export default class KoaResponsiveImageRouter extends Router {
 	private async generateImage({
 		hash,
 		resolution,
-		type,
+		fileExtension,
 	}: {
 		hash: string;
 		resolution: number;
-		type: correctExtension;
+		fileExtension: correctExtension;
 	}) {
 		const lossless = this.hashToLossless[hash];
 		return await sharp(this.hashToOriginalPath[hash])
 			.resize(resolution)
-			.toFormat(type, lossless ? { lossless: true } : {})
+			.toFormat(fileExtension, lossless ? { lossless: true } : {})
 			.toBuffer();
 	}
 }

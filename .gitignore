@@ -17,3 +17,7 @@ node_modules/
 .cache
 lib
 /.log/
+
+# ignore types
+@types
+@types/*

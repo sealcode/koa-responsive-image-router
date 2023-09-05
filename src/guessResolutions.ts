@@ -253,14 +253,12 @@ const guessResolutions = (
 		});
 	}
 
-	const {
-		ranges,
-		constant_resolutions: constant_resolutions_unsorted,
-	} = getRanges({
-		conditions,
-		min_viewport_size,
-		max_viewport_size,
-	});
+	const { ranges, constant_resolutions: constant_resolutions_unsorted } =
+		getRanges({
+			conditions,
+			min_viewport_size,
+			max_viewport_size,
+		});
 
 	for (const range of ranges.calculated) {
 		resolutions.push(...range, range[0] * 2, range[1] * 2);

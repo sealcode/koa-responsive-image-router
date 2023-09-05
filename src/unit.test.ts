@@ -3,14 +3,10 @@ import assert from "assert";
 
 describe("resolutions guessing", function () {
 	it("handles a simple vw case", function () {
-		assert.deepStrictEqual(guessResolutions("100vw"), [
-			320,
-			640,
-			1280,
-			1920,
-			2560,
-			3840,
-		]);
+		assert.deepStrictEqual(
+			guessResolutions("100vw"),
+			[320, 640, 1280, 1920, 2560, 3840]
+		);
 	});
 
 	it("handles vw case with min-width conditions", function () {
@@ -21,20 +17,8 @@ describe("resolutions guessing", function () {
 				100vw`
 			),
 			[
-				320,
-				360,
-				399,
-				480,
-				539,
-				640,
-				720,
-				798,
-				960,
-				1078,
-				1280,
-				1536,
-				2560,
-				3072,
+				320, 360, 399, 480, 539, 640, 720, 798, 960, 1078, 1280, 1536,
+				2560, 3072,
 			]
 		);
 	});
@@ -60,21 +44,8 @@ describe("resolutions guessing", function () {
 				900px`
 			),
 			[
-				320,
-				480,
-				599,
-				600,
-				640,
-				900,
-				959,
-				960,
-				999,
-				1198,
-				1200,
-				1280,
-				1800,
-				1918,
-				1998,
+				320, 480, 599, 600, 640, 900, 959, 960, 999, 1198, 1200, 1280,
+				1800, 1918, 1998,
 			]
 		);
 	});
