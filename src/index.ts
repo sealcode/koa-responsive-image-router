@@ -27,6 +27,7 @@ function isCorrectExtension(
 
 const MONTH = 60 * 60 * 24 * 30;
 
+// ImgClass
 enum imgClass {
 	horizontal = "horizontal",
 	vertical = "vertical",

@@ -18,6 +18,24 @@ node_modules/
 lib
 /.log/
 
+# coverage tests
+.nyc_output/*
+.nyc_output/
+.xunit
+coverage/*
+coverage/
+
+.DS_store
+
+# coverage tests
+.nyc_output/*
+.nyc_output/
+.xunit
+coverage/*
+coverage/
+
+.DS_store
+
 # ignore types
 @types
 @types/*
