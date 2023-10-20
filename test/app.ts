@@ -149,3 +149,4 @@ router.get("/queue", async (ctx) => {
 
 router.use("/static/images", imageRouter.getRoutes());
 app.use(router.routes()).use(router.allowedMethods()).listen(3005);
+console.log("Demo running on http://localhost:3005");
