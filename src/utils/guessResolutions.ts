@@ -1,21 +1,9 @@
-type resolutionGuessOptions = {
-	min_viewport_size?: number;
-	max_viewport_size?: number;
-};
-
-type Unit = "vw" | "px";
-
-type Ranges = {
-	screen: number[][];
-	calculated: number[][];
-};
-
-type Condition = {
-	condition_type: "max" | "min" | "default";
-	width_condition: number;
-	then_res: number;
-	then_unit: "vw" | "px";
-};
+import {
+	Condition,
+	Ranges,
+	Unit,
+	resolutionGuessOptions,
+} from "../types/guessResolutions";
 
 const sortAscFn = (a: number, b: number) => a - b;
 

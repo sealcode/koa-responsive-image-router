@@ -4,118 +4,40 @@ import crypto from "crypto";
 import Queue from "better-queue";
 import os from "os";
 
+import { is, predicates } from "@sealcode/ts-predicates";
 import { stat } from "fs/promises";
 import { extname, basename } from "path";
 import { Middleware } from "koa";
 
-import { guessResolutions } from "./guessResolutions";
+import { guessResolutions } from "./utils/guessResolutions";
+
 import {
-	applyCrop,
-	SmartCropOptions,
-	DirectCropOptions,
-} from "./smartCropImage";
+	ImageParametersWithDefaults,
+	ImageParameters,
+	BaseImageParameters,
+	ImageData,
+	Task,
+	correctExtension,
+} from "./types/imageRouter";
 
-import { is, predicates } from "@sealcode/ts-predicates";
+import { SmartCropOptions, DirectCropOptions } from "./types/smartCropImage";
 
-interface Task {
-	hash: string;
-	resolution: number;
-	fileExtension: string;
-	cropData: SmartCropOptions | DirectCropOptions | undefined;
-}
+import { applyCrop } from "./utils/smartCropImage";
 
-interface Task {
-	hash: string;
-	resolution: number;
-	fileExtension: string;
-}
+import { MONTH } from "./constants/constants";
 
-type correctExtension = "jpeg" | "png" | "avif" | "webp";
-
-function isCorrectExtension(
-	fileExtension: unknown
-): fileExtension is correctExtension {
-	const extensions = ["avif", "webp", "jpeg", "png"];
-	return extensions.includes(fileExtension as string);
-}
-
-const MONTH = 60 * 60 * 24 * 30;
-
-// ImgClass
-enum imgClass {
-	horizontal = "horizontal",
-	vertical = "vertical",
-	square = "square",
-	landscape = "landscape",
-	portrait = "portrait",
-
-	ratioCrossedThreshold = "ratio-crossed-threshold",
-	ratioAboveThreshold = "ratio-above-threshold",
-	ratioBelowThreshold = "ratio-below-threshold",
-}
-
-function joinClasses(...classes: string[]): string {
-	return classes.join(" ");
-}
-
-function makeImgClasses({
-	width,
-	height,
-	target_ratio,
-	ratio_diff_threshold,
-}: {
-	width: number;
-	height: number;
-	target_ratio: number;
-	ratio_diff_threshold: number;
-}): string {
-	let classes = "";
-
-	if (width > height)
-		classes = joinClasses(imgClass.horizontal, imgClass.landscape);
-	else if (width === height) classes = joinClasses(imgClass.square);
-	else classes = joinClasses(imgClass.vertical, imgClass.portrait);
-
-	const ratio = width / height;
-	const ratio_difference = ratio - target_ratio;
-
-	if (Math.abs(ratio_difference) > ratio_diff_threshold) {
-		classes = joinClasses(classes, imgClass.ratioCrossedThreshold);
-
-		if (ratio_difference > 0)
-			classes = joinClasses(classes, imgClass.ratioAboveThreshold);
-		else classes = joinClasses(classes, imgClass.ratioBelowThreshold);
-	}
-
-	return classes;
-}
-
-function encodeFilename({
-	width,
-	originalPath,
-	format,
-}: {
-	width: number;
-	originalPath: string;
-	format: string;
-}): string {
-	const filename = basename(originalPath)
-		.slice(0, -1 * extname(originalPath).length)
-		.replace(/\./g, "_");
-
-	return `${filename || "image"}.${width}.${format}`;
-}
+import {
+	encodeFilename,
+	getImageClasses,
+	isCorrectExtension,
+} from "./utils/utils";
 
 export default class KoaResponsiveImageRouter extends Router {
 	router: Router;
-	hashToResolutions: Record<string, number[]> = {};
-	hashToLossless: Record<string, boolean> = {};
-	hashToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
-	hashToOriginalPath: Record<string, string> = {};
-	hashToCropData: Record<string, SmartCropOptions | DirectCropOptions> = {};
 	nginxWarningDisplayed = false;
 	private maxConcurrent: number;
 	private imageQueue: Queue;
+	hashToImageData: Record<string, ImageData> = {};
 
 	constructor(
 		public static_path: string,
@@ -158,12 +80,13 @@ export default class KoaResponsiveImageRouter extends Router {
 			}
 
 			const { hash, filename } = ctx.params;
+
 			const resolution = parseInt(filename.split(".")[1]);
 			const fileExtension = extname(filename).split(".").pop();
 
-			const cropData = this.hashToCropData[hash];
+			const crop = this.hashToImageData[hash].crop;
 			if (
-				this.hashToResolutions[hash].find(
+				this.hashToImageData[hash].resolutions.find(
 					(el: number) => el === resolution
 				) &&
 				fileExtension !== undefined &&
@@ -184,7 +107,7 @@ export default class KoaResponsiveImageRouter extends Router {
 							hash,
 							resolution,
 							fileExtension,
-							cropData,
+							crop,
 						}
 					);
 
@@ -207,7 +130,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			hash: string;
 			resolution: number;
 			fileExtension: string;
-			cropData: SmartCropOptions | DirectCropOptions | undefined;
+			crop: SmartCropOptions | DirectCropOptions | undefined;
 		}
 	): Promise<Buffer> {
 		return new Promise<Buffer>((resolve, reject) => {
@@ -235,9 +158,9 @@ export default class KoaResponsiveImageRouter extends Router {
 		cb: (error: Error | null, result: Buffer | null) => void
 	): Promise<void> {
 		try {
-			const { hash, resolution, fileExtension, cropData } = task;
+			const { hash, resolution, fileExtension, crop } = task;
 			if (isCorrectExtension(fileExtension)) {
-				if (is(cropData, predicates.undefined)) {
+				if (is(crop, predicates.undefined)) {
 					const imageBuffer = await this.generateImage({
 						hash,
 						resolution,
@@ -246,10 +169,10 @@ export default class KoaResponsiveImageRouter extends Router {
 					cb(null, imageBuffer);
 				} else {
 					const croppedImageData = await applyCrop(
-						this.hashToOriginalPath[hash],
+						this.hashToImageData[hash].originalPath,
 						this.tmp_path,
 						resolution,
-						cropData
+						crop
 					);
 					cb(null, croppedImageData);
 				}
@@ -262,11 +185,14 @@ export default class KoaResponsiveImageRouter extends Router {
 	}
 
 	async getMetadata(hash: string): Promise<sharp.Metadata> {
-		if (this.hashToMetadata[hash]) {
-			return this.hashToMetadata[hash] as Promise<sharp.Metadata>;
+		if (this.hashToImageData[hash].metadata) {
+			return this.hashToImageData[hash]
+				.metadata as Promise<sharp.Metadata>;
 		} else {
-			const metadata = sharp(this.hashToOriginalPath[hash]).metadata();
-			this.hashToMetadata[hash] = metadata;
+			const metadata = sharp(
+				this.hashToImageData[hash].originalPath
+			).metadata();
+			this.hashToImageData[hash].metadata = metadata;
 			return metadata;
 		}
 	}
@@ -282,7 +208,7 @@ export default class KoaResponsiveImageRouter extends Router {
 	}): string {
 		const result = `${this.static_path}/${hash}/${encodeFilename({
 			width,
-			originalPath: this.hashToOriginalPath[hash],
+			originalPath: this.hashToImageData[hash].originalPath,
 			format,
 		})}`;
 
@@ -308,43 +234,88 @@ export default class KoaResponsiveImageRouter extends Router {
 }`;
 	}
 
-	async image({
-		resolutions,
-		sizes_attr,
-		path,
-		alt,
-		lossless = false,
-		lazy = true,
-		img_style,
-		target_ratio = 16 / 9,
-		ratio_diff_threshold = 0.2,
-		crop,
-	}: {
-		resolutions?: number[];
-		sizes_attr: string;
-		path: string;
-		lossless?: boolean;
-		lazy?: boolean;
-		img_style?: string;
-		target_ratio?: number;
-		ratio_diff_threshold?: number;
-		alt?: string;
-		crop?: SmartCropOptions | DirectCropOptions;
-	}): Promise<string> {
-		if (!resolutions || !resolutions.length) {
-			resolutions = guessResolutions(sizes_attr);
+	private createImageDefaultParameters(
+		params: Partial<BaseImageParameters>
+	): ImageParametersWithDefaults {
+		const result: ImageParametersWithDefaults = {
+			alt: typeof params.alt !== "undefined" ? params.alt : "",
+			lossless:
+				typeof params.lossless !== "undefined"
+					? params.lossless
+					: false,
+			lazy: typeof params.lazy !== "undefined" ? params.lazy : true,
+			img_style:
+				typeof params.img_style !== "undefined" ? params.img_style : "",
+			target_ratio:
+				typeof params.target_ratio !== "undefined"
+					? params.target_ratio
+					: 16 / 9,
+			ratio_diff_threshold:
+				typeof params.ratio_diff_threshold !== "undefined"
+					? params.ratio_diff_threshold
+					: 0.2,
+		};
+		return result;
+	}
+
+	async image(params: ImageParameters): Promise<string> {
+		let resolutions: number[] = [];
+		let container;
+
+		if (
+			"sizes_attr" in params &&
+			params.sizes_attr &&
+			"resolutions" in params
+		) {
+			resolutions = params.resolutions;
+		} else if ("sizes_attr" in params && params.sizes_attr) {
+			resolutions = guessResolutions(params.sizes_attr);
+		} else if ("resolutions" in params && "container" in params) {
+			resolutions = params.resolutions;
+			container = params.container;
+		} else if ("container" in params) {
+			container = params.container;
+			resolutions = guessResolutions(`${container.width}px`);
+		} else {
+			throw new Error(
+				"Invalid parameters. You must provide 'sizes_attr', or 'resolutions' and 'container', or 'container'."
+			);
 		}
 
-		const hash = await this.getHash(path, resolutions, crop);
+		const imageParams = this.createImageDefaultParameters(params);
 
-		this.hashToLossless[hash] = lossless;
-		this.hashToOriginalPath[hash] = path;
+		const hash = await this.getHash(
+			params.path,
+			resolutions,
+			imageParams.target_ratio,
+			imageParams.ratio_diff_threshold,
+			container,
+			params.crop
+		);
 
-		if (crop) {
-			this.hashToCropData[hash] = crop;
+		if (!this.hashToImageData[hash]) {
+			this.hashToImageData[hash] = {
+				resolutions: [],
+				lossless: imageParams.lossless,
+				metadata: undefined,
+				originalPath: params.path,
+				target_ratio: imageParams.target_ratio,
+				ratio_diff_threshold: imageParams.ratio_diff_threshold,
+				container: {
+					object_fit: "",
+					width: 0,
+					height: 0,
+				},
+				crop: undefined,
+			};
+		}
+
+		if (params.crop) {
+			this.hashToImageData[hash].crop = params.crop;
 		}
 
 		const metadata = await this.getMetadata(hash);
+
 		const imgDimensions = {
 			width: metadata.width || 100,
 			height: metadata.height || 100,
@@ -362,31 +333,66 @@ export default class KoaResponsiveImageRouter extends Router {
 			resolutions = [imgDimensions.width];
 		}
 
-		this.hashToResolutions[hash] = resolutions;
+		this.hashToImageData[hash].resolutions = resolutions;
 
 		const extensions = [
 			"webp",
 			"png",
-			...(lossless ? [] : ["jpg", "avif"]),
+			...(imageParams.lossless ? [] : ["jpg", "avif"]),
 		];
 
+		let imageWidth = imgDimensions.width;
+		let imageHeight = imgDimensions.height;
+		let objectWidth: number = imgDimensions.width;
+
+		if (container) {
+			this.hashToImageData[hash].container = container;
+
+			if (container.height > 0 && container.width > 0) {
+				const objectSize = this.calculateImageSizeForContainer(
+					imgDimensions.width,
+					imgDimensions.height,
+					container.width,
+					container.height,
+					container.object_fit
+				);
+
+				objectWidth = objectSize.width;
+				imageHeight = objectSize.height;
+				imageWidth = container.width;
+
+				if (imageParams.img_style) {
+					imageParams.img_style += `object-fit: ${container.object_fit};`;
+				} else {
+					imageParams.img_style = `object-fit: ${container.object_fit};`;
+				}
+			} else {
+				throw new Error("Invalid container dimensions");
+			}
+		}
+
 		let html = "<picture>";
+
+		let sizes = "";
+		if ("sizes_attr" in params && params.sizes_attr) {
+			sizes = params.sizes_attr;
+		} else if ("container" in params && params.container) {
+			sizes += `${objectWidth}px`;
+		}
 
 		html += this.generateResponsiveImageSources(
 			hash,
 			extensions,
 			resolutions,
-			sizes_attr
+			sizes
 		);
 
 		html += this.generateMainImageTag(
 			hash,
-			imgDimensions,
-			target_ratio,
-			ratio_diff_threshold,
-			lazy,
-			img_style,
-			alt,
+			{ width: imageWidth, height: imageHeight },
+			imageParams.lazy,
+			imageParams.img_style,
+			imageParams.alt,
 			resolutions
 		);
 
@@ -399,7 +405,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		hash: string,
 		extensions: string[],
 		resolutions: number[],
-		sizes_attr: string
+		sizes: string
 	): string {
 		const sourceTags = extensions.map((extension) => {
 			const srcset = resolutions
@@ -412,7 +418,7 @@ export default class KoaResponsiveImageRouter extends Router {
 					return `${imgURL} ${resolution}w`;
 				})
 				.join(", ");
-			return `<source srcset="${srcset}" sizes="${sizes_attr}" type="image/${extension}" />`;
+			return `<source srcset="${srcset}" sizes="${sizes}" type="image/${extension}" />`;
 		});
 
 		return sourceTags.join("\n");
@@ -421,8 +427,6 @@ export default class KoaResponsiveImageRouter extends Router {
 	private generateMainImageTag(
 		hash: string,
 		imgDimensions: { width: number; height: number },
-		target_ratio: number,
-		ratio_diff_threshold: number,
 		lazy: boolean,
 		img_style: string | undefined,
 		alt: string | undefined,
@@ -444,12 +448,13 @@ export default class KoaResponsiveImageRouter extends Router {
 		const imgStyle = img_style ? `style="${img_style}"` : "";
 		const altText = alt ? `alt="${alt}"` : "";
 
-		return `<img class="${makeImgClasses({
+		return `<img class="${getImageClasses({
 			width: imgDimensions.width,
 			height: imgDimensions.height,
-			target_ratio,
-			ratio_diff_threshold,
-		})}" ${lazyLoading} width="${imgDimensions.width}" height="${
+			target_ratio: this.hashToImageData[hash].target_ratio,
+			ratio_diff_threshold:
+				this.hashToImageData[hash].ratio_diff_threshold,
+		}).join(" ")}" ${lazyLoading} width="${imgDimensions.width}" height="${
 			imgDimensions.height
 		}" ${imgStyle} src="${imgURL}" ${altText} />`;
 	}
@@ -458,19 +463,79 @@ export default class KoaResponsiveImageRouter extends Router {
 		return this.router.routes();
 	}
 
+	calculateImageSizeForContainer(
+		imageWidth: number,
+		imageHeight: number,
+		containerWidth: number,
+		containerHeight: number,
+		objectFit: string
+	): { width: number; height: number } {
+		let targetWidth: number, targetHeight: number;
+
+		if (containerWidth <= 0 || containerHeight <= 0) {
+			targetWidth = 0;
+			targetHeight = 0;
+		} else {
+			const containerAspect = containerWidth / containerHeight;
+			const imageAspect = imageWidth / imageHeight;
+			if (containerAspect === imageAspect) {
+				targetWidth = containerWidth;
+				targetHeight = containerHeight;
+			}
+			if (objectFit === "cover") {
+				if (containerAspect > imageAspect) {
+					targetWidth = containerWidth;
+					targetHeight = containerWidth / imageAspect;
+				} else {
+					targetHeight = containerHeight;
+					targetWidth = containerHeight * imageAspect;
+				}
+			} else if (objectFit === "contain") {
+				if (containerAspect < imageAspect) {
+					targetWidth = containerWidth;
+					targetHeight = containerWidth / imageAspect;
+				} else {
+					targetHeight = containerHeight;
+					targetWidth = containerHeight * imageAspect;
+				}
+			} else {
+				targetWidth = containerWidth;
+				targetHeight = containerHeight;
+			}
+		}
+
+		return {
+			width: targetWidth,
+			height: targetHeight,
+		};
+	}
+
 	private async getHash(
 		original_file_path: string,
 		resolutions: number[],
+		target_ratio: number,
+		ratio_diff_threshold: number,
+		container?: {
+			object_fit: "cover" | "contain";
+			width: number;
+			height: number;
+		},
 		crop?: SmartCropOptions | DirectCropOptions
 	) {
+		const containerString = container ? JSON.stringify(container) : "";
 		const cropString = crop ? JSON.stringify(crop) : "";
 		return crypto
-			.createHash("md5")
+			.createHash("sha3-256")
 			.update(
 				`
-				${basename(original_file_path)}${(
-					await stat(original_file_path)
-				).atime.getTime()}${JSON.stringify(resolutions)}${cropString}`
+				${basename(original_file_path)}
+				${(await stat(original_file_path)).atime.getTime()}
+				${JSON.stringify(resolutions)}
+				${JSON.stringify(target_ratio)}
+				${JSON.stringify(ratio_diff_threshold)}
+				${containerString}
+				${cropString}
+				`
 			)
 			.digest("hex");
 	}
@@ -484,8 +549,8 @@ export default class KoaResponsiveImageRouter extends Router {
 		resolution: number;
 		fileExtension: correctExtension;
 	}) {
-		const lossless = this.hashToLossless[hash];
-		return await sharp(this.hashToOriginalPath[hash])
+		const lossless = this.hashToImageData[hash].lossless;
+		return await sharp(this.hashToImageData[hash].originalPath)
 			.resize(resolution)
 			.toFormat(fileExtension, lossless ? { lossless: true } : {})
 			.toBuffer();

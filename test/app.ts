@@ -12,10 +12,49 @@ const imageRouter = new KoaResponsiveImageRouter(
 	20
 );
 
+function generateNavbar(currentPage: string): string {
+	const navLinks = [
+		{ text: "Sizes Example", path: "/", isActive: currentPage === "sizes" },
+		{
+			text: "Ratios Example",
+			path: "/ratios",
+			isActive: currentPage === "ratios",
+		},
+		{
+			text: "Queue Test",
+			path: "/queue",
+			isActive: currentPage === "queue",
+		},
+		{
+			text: "Object-fit-sizing example",
+			path: "/object-fit-sizing",
+			isActive: currentPage === "object-fit-sizing",
+		},
+		{
+			text: "Smartcrop example",
+			path: "/smartcrop",
+			isActive: currentPage === "smartcrop",
+		},
+	];
+
+	let navbarHTML = "<nav><ul>";
+
+	navLinks.forEach((link) => {
+		if (!link.isActive) {
+			navbarHTML += `<li><a href="${link.path}">${link.text}</a></li>`;
+		}
+	});
+
+	navbarHTML += "</ul></nav>";
+
+	return navbarHTML;
+}
+
 router.get("/", async (ctx) => {
-	ctx.body = `<p><b>sizes example</b> <a href="/ratios">go to ratios</a> </p>
-	<p><b>smarctop example</b> <a href="/smartcrop">go to smartcrop</a> </p>
-	<p><b>queue test</b> <a href="/queue">go to queue</a> </p>
+	const currentPage = "sizes";
+	const navbarHTML = generateNavbar(currentPage);
+	ctx.body = `
+	${navbarHTML}
 	${await imageRouter.image({
 		sizes_attr: `
 					(min-width: 600px) 80vw,
@@ -59,19 +98,19 @@ const getImages = async () => {
 };
 
 router.get("/ratios", async (ctx) => {
+	const currentPage = "ratios";
+	const navbarHTML = generateNavbar(currentPage);
 	ctx.body = `
-		<p><b>ratios example</b> <a href="/">go to sizes</a> </p>
-		<p><b>smarctop example</b> <a href="/smartcrop">go to smartcrop</a> </p>
-		<p><b>queue test</b> <a href="/queue">go to queue</a> </p>
+	${navbarHTML}
 		${await getImages()}
 	`;
 });
 
 router.get("/smartcrop", async (ctx) => {
+	const currentPage = "smartcrop";
+	const navbarHTML = generateNavbar(currentPage);
 	ctx.body = `
-	<p><b>sizes example</b> <a href="/ratios">go to ratios</a> </p>
-	<p><b>ratios example</b> <a href="/">go to sizes</a> </p>
-	<p><b>queue test</b> <a href="/queue">go to queue</a> </p>
+	${navbarHTML}
 	${await imageRouter.image({
 		resolutions: [600, 1000, 1500, 2000],
 		sizes_attr: "(max-width: 600) 100vw, 600px",
@@ -120,6 +159,9 @@ router.get("/smartcrop", async (ctx) => {
 
 router.use(paths.staticImages, imageRouter.getRoutes());
 router.get("/queue", async (ctx) => {
+	const currentPage = "queue";
+	const navbarHTML = generateNavbar(currentPage);
+
 	let imagesHtml = "";
 
 	const imageOptions = {
@@ -140,10 +182,59 @@ router.get("/queue", async (ctx) => {
 	}
 
 	ctx.body = `
-	<p><b>sizes example</b> <a href="/ratios">go to ratios</a> </p>
-	<p><b>ratios example</b> <a href="/">go to sizes</a> </p>
-	<p><b>smarctop example</b> <a href="/smartcrop">go to smartcrop</a> </p>
+	${navbarHTML}
 	   ${imagesHtml}
+	`;
+});
+
+router.get("/object-fit-sizing", async (ctx) => {
+	const currentPage = "object-fit-sizing";
+	const navbarHTML = generateNavbar(currentPage);
+	let object_width = 500;
+	const resolutions: number[] = [];
+
+	for (let step = 1; step <= 100; step++) {
+		resolutions.push(object_width * (step * 0.1));
+	}
+
+	ctx.body = `
+	${navbarHTML}
+
+	<h2>Default Image (Cover)</h2>
+	${await imageRouter.image({
+		resolutions: resolutions,
+		sizes_attr: `${object_width}px`,
+		path: paths.exampleImg,
+		lazy: false,
+		img_style: "width: 500px; height: auto",
+	})}
+
+	<h2>Container with 'cover' Object Fit</h2>
+	${await imageRouter.image({
+		resolutions: resolutions,
+		path: paths.exampleImg,
+		lazy: false,
+		img_style: "width: 500px; height: 500px;",
+		container: {
+			object_fit: "cover",
+			width: object_width,
+			height: object_width,
+		},
+	})}
+
+	<h2>Container with 'contain' Object Fit</h2>
+	${await imageRouter.image({
+		resolutions: resolutions,
+		path: paths.exampleImg,
+		lazy: false,
+		img_style: "width: 500px; height: 500px;",
+		container: {
+			object_fit: "contain",
+			width: object_width,
+			height: object_width,
+		},
+	})}
+
 	`;
 });
 

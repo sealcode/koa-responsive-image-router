@@ -3,16 +3,7 @@ import smartcrop from "smartcrop-sharp";
 import { Buffer } from "buffer";
 import fs from "fs/promises";
 import { randomBytes } from "crypto";
-
-type SmartCropOptions = {
-	width: number;
-	height: number;
-};
-
-type DirectCropOptions = SmartCropOptions & {
-	x: number;
-	y: number;
-};
+import { SmartCropOptions, DirectCropOptions } from "../types/smartCropImage";
 
 function isSmartCropOptions(
 	value: SmartCropOptions | DirectCropOptions
