@@ -35,6 +35,11 @@ function generateNavbar(currentPage: string): string {
 			path: "/smartcrop",
 			isActive: currentPage === "smartcrop",
 		},
+		{
+			text: "Resolution filter example",
+			path: "/res-filter",
+			isActive: currentPage === "res-filter",
+		},
 	];
 
 	let navbarHTML = "<nav><ul>";
@@ -157,7 +162,6 @@ router.get("/smartcrop", async (ctx) => {
 	`;
 });
 
-router.use(paths.staticImages, imageRouter.getRoutes());
 router.get("/queue", async (ctx) => {
 	const currentPage = "queue";
 	const navbarHTML = generateNavbar(currentPage);
@@ -185,6 +189,34 @@ router.get("/queue", async (ctx) => {
 	${navbarHTML}
 	   ${imagesHtml}
 	`;
+});
+
+router.get("/res-filter", async (ctx) => {
+	const currentPage = "res-filter";
+	const navbarHTML = generateNavbar(currentPage);
+	ctx.body = `
+	${navbarHTML}w
+
+	<p><b>max-res: 5820</b></p>
+
+	${await imageRouter.image({
+		resolutions: [
+			600, 1000, 2000, 3000, 4000, 5000, 5500, 5820, 5821, 6000, 6500,
+			8000,
+		],
+		sizes_attr: "(max-width: 600) 100vw, 600px",
+		path: paths.exampleImg,
+		lazy: false,
+		img_style: "width: 600px; height: auto",
+	})}
+
+	${await imageRouter.image({
+		resolutions: [600, 1000, 5500, 6000, 6500, 8000],
+		sizes_attr: "(max-width: 600) 100vw, 600px",
+		path: paths.exampleImg,
+		lazy: false,
+		img_style: "width: 600px; height: auto",
+	})}`;
 });
 
 router.get("/object-fit-sizing", async (ctx) => {
@@ -238,6 +270,6 @@ router.get("/object-fit-sizing", async (ctx) => {
 	`;
 });
 
-router.use("/static/images", imageRouter.getRoutes());
+router.use(paths.staticImages, imageRouter.getRoutes());
 app.use(router.routes()).use(router.allowedMethods()).listen(3005);
 console.log("Demo running on http://localhost:3005");

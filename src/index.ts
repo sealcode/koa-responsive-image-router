@@ -316,6 +316,12 @@ export default class KoaResponsiveImageRouter extends Router {
 
 		const metadata = await this.getMetadata(hash);
 
+		const originalWidth = metadata.width || Infinity;
+
+		resolutions = Array.from(
+			new Set(resolutions.filter((width) => width <= originalWidth))
+		);
+
 		const imgDimensions = {
 			width: metadata.width || 100,
 			height: metadata.height || 100,
