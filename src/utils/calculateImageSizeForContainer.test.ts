@@ -1,11 +1,19 @@
 import KoaResponsiveImageRouter from "..";
 import assert from "assert";
+import { imageRouterConfig, paths } from "../../test/config";
 
 describe.only("calculateImageSizeForContainer", () => {
-	const imageRouter = new KoaResponsiveImageRouter(
-		"/static/images",
-		"/tmp/images"
-	);
+	// const imageRouter = new KoaResponsiveImageRouter(
+	// 	"/static/images",
+	// 	"/tmp/images"
+	// );
+
+	const imageRouter = new KoaResponsiveImageRouter({
+		staticPath: paths.staticImages,
+		thumbnailSize: imageRouterConfig.thumbnailsSize,
+		cacheManagerResolutionThreshold:
+			imageRouterConfig.cacheManagerResolutionThreshold,
+	});
 
 	it('should return the correct size for "cover" object fit (landscape container)', () => {
 		const imageWidth = 800;

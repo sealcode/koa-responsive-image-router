@@ -1,10 +1,6 @@
 import Router from "@koa/router";
-import sharp from "sharp";
 import crypto from "crypto";
-import Queue from "better-queue";
-import os from "os";
 
-import { is, predicates } from "@sealcode/ts-predicates";
 import { stat } from "fs/promises";
 import { extname, basename } from "path";
 import { Middleware } from "koa";
@@ -12,17 +8,10 @@ import { Middleware } from "koa";
 import { guessResolutions } from "./utils/guessResolutions";
 
 import {
-	ImageParametersWithDefaults,
-	ImageParameters,
-	BaseImageParameters,
-	ImageData,
+	FilruParameters,
 	Task,
-	correctExtension,
-} from "./types/imageRouter";
-
-import { SmartCropOptions, DirectCropOptions } from "./types/smartCropImage";
-
-import { applyCrop } from "./utils/smartCropImage";
+	ThumbnailCacheParams,
+} from "./types/cacheManager";
 
 import { MONTH } from "./constants/constants";
 
@@ -30,46 +19,119 @@ import {
 	encodeFilename,
 	getImageClasses,
 	isCorrectExtension,
+	checkMaxConcurrent,
 } from "./utils/utils";
 
-export default class KoaResponsiveImageRouter extends Router {
-	router: Router;
-	nginxWarningDisplayed = false;
-	private maxConcurrent: number;
-	private imageQueue: Queue;
-	hashToImageData: Record<string, ImageData> = {};
+import { ImageInfoTool } from "./utils/ImageInfoTool";
 
-	constructor(
-		public static_path: string,
-		public tmp_path: string,
-		maxConcurrent?: number
-	) {
+import { SmartCropOptions, DirectCropOptions } from "./utils/smartCropImage";
+
+import { CacheManager } from "./utils/cache/CacheManager";
+import {
+	BaseImageParameters,
+	ImageParameters,
+	ImageParametersWithDefaults,
+} from "./types/imageRouter";
+
+export default class KoaResponsiveImageRouter extends Router {
+	private router: Router;
+	// Store low resolution thumbnail
+	private cacheManager: CacheManager;
+	// Flag to track if the NGINX warning has been displayed
+	private nginxWarningDisplayed = false;
+	// Generated thumbnail size in pixels
+	private defaultThumbnailSize: number;
+	// id for thumbnail
+	private currentId = 0;
+	private staticPath;
+	private cacheManagerResolutionThreshold;
+
+	/**
+	 * @param {string} static_path - static url
+	 * @param {string} thumbnailSize - thumbnail size in pixels
+	 * @param {number} [cacheManagerResolutionThreshold] - Threshold for
+	 * determining whether images should be stored in memory or on disk in the
+	 * cache manager. It represents the image size in pixels, and images larger
+	 * than this threshold will be stored on disk, while smaller images will be
+	 * stored in memory.
+	 * @param {string} imageStoragePath - cache directory for images
+	 * @param {string} smartCropDtoragePath - cache directory for smartcrop results
+	 * @param {number} [maxImagesConcurrent] - number of threads
+	 * @param {number} [diskImageCacheSize] - max allowed size of the cache on disk in
+	 * mega bytes. (default: 50 MB)
+	 * @param {number} [smartCropCacheSize] - max allowed size of the cache on disk in
+	 * mega bytes. (default: 50 MB)
+	 * @param {number} [pruneInterval] - interval to run cache invalidation in
+	 * @param {number} [maxAge] - max allowed age of cached items in seconds.
+	 * milliseconds. (default: 5 minutes)
+	 * @param {number} [hashSeed] - seed for hashing
+	 * @param {number} [thumbnailMaxCacheSize] - max cache size for thumbnails
+	 */
+	constructor({
+		staticPath,
+		thumbnailSize,
+		cacheManagerResolutionThreshold,
+		imageStoragePath,
+		smartCropDtoragePath,
+		maxImagesConcurrent,
+		diskImageCacheSize,
+		smartCropCacheSize,
+		pruneInterval,
+		maxAge,
+		hashSeed,
+		thumbnailMaxCacheSize,
+	}: {
+		staticPath: string;
+		thumbnailSize: number;
+		cacheManagerResolutionThreshold: number;
+		imageStoragePath?: string;
+		smartCropDtoragePath?: string;
+		maxImagesConcurrent?: number;
+		diskImageCacheSize?: number;
+		smartCropCacheSize?: number;
+		pruneInterval?: number;
+		maxAge?: number;
+		hashSeed?: string;
+		thumbnailMaxCacheSize?: number;
+	}) {
 		super();
 		this.router = new Router();
+		this.staticPath = staticPath;
+		this.cacheManagerResolutionThreshold = cacheManagerResolutionThreshold;
+		this.defaultThumbnailSize = thumbnailSize;
 
-		const availableCpus = os.cpus().length;
-		const suggestedMaxConcurrent =
-			availableCpus > 1 ? availableCpus - 1 : 1;
+		const localCachePatameters: FilruParameters = {
+			storagePath: imageStoragePath,
+			diskCacheSize: diskImageCacheSize,
+			pruneInterval: pruneInterval,
+			maxAge: maxAge,
+			hashSeed: hashSeed,
+		};
 
-		if (
-			maxConcurrent !== undefined &&
-			maxConcurrent > suggestedMaxConcurrent
-		) {
-			console.warn(
-				`Warning: The specified maxConcurrent (${maxConcurrent}) exceeds the recommended limit (${suggestedMaxConcurrent}). Using ${suggestedMaxConcurrent} instead.`
-			);
-			this.maxConcurrent = suggestedMaxConcurrent;
-		} else {
-			this.maxConcurrent =
-				maxConcurrent !== undefined
-					? maxConcurrent
-					: suggestedMaxConcurrent;
-		}
-		this.imageQueue = new Queue(this.processImage.bind(this), {
-			concurrent: this.maxConcurrent,
-		});
+		const smartcropCacheParams: FilruParameters = {
+			storagePath: smartCropDtoragePath,
+			diskCacheSize: smartCropCacheSize,
+			pruneInterval: pruneInterval,
+			maxAge: maxAge,
+			hashSeed: hashSeed,
+		};
+
+		const thumnailCacheParams: ThumbnailCacheParams = {
+			maxCacheSize: thumbnailMaxCacheSize,
+		};
+
+		maxImagesConcurrent = checkMaxConcurrent(maxImagesConcurrent);
+
+		this.cacheManager = new CacheManager(
+			thumnailCacheParams,
+			localCachePatameters,
+			smartcropCacheParams,
+			maxImagesConcurrent,
+			cacheManagerResolutionThreshold
+		);
 
 		this.router.get("/:hash/:filename", async (ctx) => {
+			// Display NGINX warning if not using a caching proxy
 			if (!this.nginxWarningDisplayed && !ctx.headers["x-proxied"]) {
 				console.log(
 					"Request for an image probably did not go through a caching proxy, use the following NGINX config to fix that:"
@@ -80,136 +142,70 @@ export default class KoaResponsiveImageRouter extends Router {
 			}
 
 			const { hash, filename } = ctx.params;
-
 			const resolution = parseInt(filename.split(".")[1]);
 			const fileExtension = extname(filename).split(".").pop();
 
-			const crop = this.hashToImageData[hash].crop;
+			// Serve image if hash, resolution, and extension are valid
+			const cropData = ImageInfoTool.getImageData(hash).crop;
 			if (
-				this.hashToImageData[hash].resolutions.find(
-					(el: number) => el === resolution
-				) &&
-				fileExtension !== undefined &&
-				isCorrectExtension(fileExtension)
+				!(
+					ImageInfoTool.getImageData(hash).resolutions.find(
+						(el: number) => el === resolution
+					) &&
+					fileExtension !== undefined &&
+					isCorrectExtension(fileExtension)
+				)
 			) {
-				ctx.set("Cache-Control", `public, max-age=${MONTH}, immutable`);
-				ctx.set("etag", `"${hash}:${filename}"`);
-				ctx.status = 200; //otherwise the `.fresh` check won't work, see https://koajs.com/
-				if (ctx.fresh) {
-					ctx.status = 304;
-					return;
-				}
+				ctx.response.status = 404;
+				return;
+			}
+			ctx.set("Cache-Control", `public, max-age=${MONTH}, immutable`);
+			ctx.set("etag", `"${hash}:${filename}"`);
+			ctx.status = 200; //otherwise the `.fresh` check won't work, see https://koajs.com/
+			if (ctx.fresh) {
+				ctx.status = 304;
+				return;
+			}
 
-				try {
-					const imageBuffer = await this.enqueueImageProcessing(
-						this.imageQueue,
-						{
-							hash,
-							resolution,
-							fileExtension,
-							crop,
-						}
-					);
+			try {
+				const thumbnailTask: Task = {
+					hash: hash,
+					resolution: resolution,
+					fileExtension: fileExtension,
+					cropData: cropData,
+				};
 
-					ctx.body = imageBuffer;
-					ctx.type = `image/${fileExtension}`;
-					ctx.status = 200;
-				} catch (error) {
-					console.error(error);
-					ctx.response.status = 404;
-				}
-			} else {
+				const imageBuffer =
+					this.cacheManager.cachedGetProcessedImage(thumbnailTask);
+
+				ctx.body = await imageBuffer;
+
+				ctx.type = `image/${fileExtension}`;
+				ctx.status = 200;
+			} catch (error) {
+				console.error(error);
 				ctx.response.status = 404;
 			}
 		});
 	}
 
-	private async enqueueImageProcessing(
-		imageQueue: Queue,
-		data: {
-			hash: string;
-			resolution: number;
-			fileExtension: string;
-			crop: SmartCropOptions | DirectCropOptions | undefined;
-		}
-	): Promise<Buffer> {
-		return new Promise<Buffer>((resolve, reject) => {
-			imageQueue.push(
-				data,
-				(error: Error | null, result: Buffer | null) => {
-					if (error) {
-						reject(error);
-					} else if (result === null) {
-						reject(
-							new Error(
-								"Image processing resulted in null buffer."
-							)
-						);
-					} else {
-						resolve(result);
-					}
-				}
-			);
-		});
-	}
-
-	async processImage(
-		task: Task,
-		cb: (error: Error | null, result: Buffer | null) => void
-	): Promise<void> {
-		try {
-			const { hash, resolution, fileExtension, crop } = task;
-			if (isCorrectExtension(fileExtension)) {
-				if (is(crop, predicates.undefined)) {
-					const imageBuffer = await this.generateImage({
-						hash,
-						resolution,
-						fileExtension,
-					});
-					cb(null, imageBuffer);
-				} else {
-					const croppedImageData = await applyCrop(
-						this.hashToImageData[hash].originalPath,
-						this.tmp_path,
-						resolution,
-						crop
-					);
-					cb(null, croppedImageData);
-				}
-			} else {
-				cb(new Error(`Invalid image type: ${fileExtension}`), null);
-			}
-		} catch (error) {
-			cb(error, null);
-		}
-	}
-
-	async getMetadata(hash: string): Promise<sharp.Metadata> {
-		if (this.hashToImageData[hash].metadata) {
-			return this.hashToImageData[hash]
-				.metadata as Promise<sharp.Metadata>;
-		} else {
-			const metadata = sharp(
-				this.hashToImageData[hash].originalPath
-			).metadata();
-			this.hashToImageData[hash].metadata = metadata;
-			return metadata;
-		}
+	async start(): Promise<void> {
+		await this.cacheManager.start();
 	}
 
 	private makeImageURL({
 		hash,
 		width,
-		format,
+		extension,
 	}: {
 		hash: string;
 		width: number;
-		format: string;
+		extension: string;
 	}): string {
-		const result = `${this.static_path}/${hash}/${encodeFilename({
+		const result = `${this.staticPath}/${hash}/${encodeFilename({
 			width,
-			originalPath: this.hashToImageData[hash].originalPath,
-			format,
+			originalPath: ImageInfoTool.getImageData(hash).originalPath,
+			extension,
 		})}`;
 
 		return result;
@@ -221,7 +217,7 @@ export default class KoaResponsiveImageRouter extends Router {
 
 	server {
 		# ....
-		location ${this.static_path} {
+		location ${this.staticPath} {
 			proxy_cache cache;
 			proxy_cache_lock on;
 			proxy_cache_valid 200 90d;
@@ -233,7 +229,6 @@ export default class KoaResponsiveImageRouter extends Router {
 	}
 }`;
 	}
-
 	private createImageDefaultParameters(
 		params: Partial<BaseImageParameters>
 	): ImageParametersWithDefaults {
@@ -244,32 +239,57 @@ export default class KoaResponsiveImageRouter extends Router {
 					? params.lossless
 					: false,
 			lazy: typeof params.lazy !== "undefined" ? params.lazy : true,
-			img_style:
-				typeof params.img_style !== "undefined" ? params.img_style : "",
-			target_ratio:
-				typeof params.target_ratio !== "undefined"
-					? params.target_ratio
+			imgStyle:
+				typeof params.imgStyle !== "undefined" ? params.imgStyle : "",
+			targetRatio:
+				typeof params.targetRatio !== "undefined"
+					? params.targetRatio
 					: 16 / 9,
-			ratio_diff_threshold:
-				typeof params.ratio_diff_threshold !== "undefined"
-					? params.ratio_diff_threshold
+			ratioDiffThreshold:
+				typeof params.ratioDiffThreshold !== "undefined"
+					? params.ratioDiffThreshold
 					: 0.2,
+			thumbnailSize:
+				typeof params.thumbnailSize !== "undefined"
+					? params.thumbnailSize
+					: this.defaultThumbnailSize,
 		};
 		return result;
 	}
 
+	/**
+	 * Generates an <img> tag with responsive attributes based on the provided parameters.
+	 *
+	 * This function takes various parameters to create an HTML <img> tag with responsive attributes,
+	 * allowing for flexible customization of image display and behavior.
+	 *
+	 * @param {BaseImageParameters} params - An object containing base image parameters.
+	 * @param {number[]} [params.resolutions] - An array of resolutions for responsive images.
+	 * @param {string} params.sizesAttr - The "sizes" attribute for the <img> tag, specifying responsive behavior based on available space.
+	 * @param {string} params.path - The path to the original image to be processed and delivered by the function.
+	 * @param {string} params.alt - The "alt" attribute for the <img> tag, describing the image content.
+	 * @param {boolean} [params.lossless=false] - A boolean indicating whether to use lossless compression for images (default: false).
+	 * @param {boolean} [params.lazy=true] - A boolean indicating whether lazy loading of images should be enabled (default: true).
+	 * @param {string} [params.imgStyle] - CSS styles to be applied to the <img> tag.
+	 * @param {number} [params.targetRatio=16/9] - The target aspect ratio for cropping images (default: 16/9).
+	 * @param {number} [params.ratioDiffThreshold=0.2] - The threshold for acceptable aspect ratio differences (default: 0.2).
+	 * @param {number} [params.thumbnailSize] - Custom thumbnail size.
+	 * @param {SmartCropOptions | DirectCropOptions} [params.crop] - Options for smart cropping or direct cropping of images.
+	 *
+	 * @return {Promise<string>} - A string representing the HTML <img> tag with appropriate attributes and CSS classes.
+	 */
 	async image(params: ImageParameters): Promise<string> {
 		let resolutions: number[] = [];
 		let container;
 
 		if (
-			"sizes_attr" in params &&
-			params.sizes_attr &&
+			"sizesAttr" in params &&
+			params.sizesAttr &&
 			"resolutions" in params
 		) {
 			resolutions = params.resolutions;
-		} else if ("sizes_attr" in params && params.sizes_attr) {
-			resolutions = guessResolutions(params.sizes_attr);
+		} else if ("sizesAttr" in params && params.sizesAttr) {
+			resolutions = guessResolutions(params.sizesAttr);
 		} else if ("resolutions" in params && "container" in params) {
 			resolutions = params.resolutions;
 			container = params.container;
@@ -278,7 +298,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			resolutions = guessResolutions(`${container.width}px`);
 		} else {
 			throw new Error(
-				"Invalid parameters. You must provide 'sizes_attr', or 'resolutions' and 'container', or 'container'."
+				"Invalid parameters. You must provide 'sizesAttr', or 'resolutions' and 'container', or 'container'."
 			);
 		}
 
@@ -287,34 +307,40 @@ export default class KoaResponsiveImageRouter extends Router {
 		const hash = await this.getHash(
 			params.path,
 			resolutions,
-			imageParams.target_ratio,
-			imageParams.ratio_diff_threshold,
+			imageParams.targetRatio,
+			imageParams.ratioDiffThreshold,
 			container,
 			params.crop
 		);
 
-		if (!this.hashToImageData[hash]) {
-			this.hashToImageData[hash] = {
-				resolutions: [],
-				lossless: imageParams.lossless,
-				metadata: undefined,
-				originalPath: params.path,
-				target_ratio: imageParams.target_ratio,
-				ratio_diff_threshold: imageParams.ratio_diff_threshold,
-				container: {
-					object_fit: "",
-					width: 0,
-					height: 0,
-				},
-				crop: undefined,
-			};
-		}
+		ImageInfoTool.initImageData(hash);
+
+		ImageInfoTool.updateProperty(hash, "lossless", imageParams.lossless);
+		ImageInfoTool.updateProperty(hash, "originalPath", params.path);
+		ImageInfoTool.updateProperty(
+			hash,
+			"targetRatio",
+			imageParams.targetRatio
+		);
+		ImageInfoTool.updateProperty(
+			hash,
+			"ratioDiffThreshold",
+			imageParams.ratioDiffThreshold
+		);
 
 		if (params.crop) {
-			this.hashToImageData[hash].crop = params.crop;
+			ImageInfoTool.updateProperty(hash, "crop", params.crop);
 		}
 
-		const metadata = await this.getMetadata(hash);
+		resolutions.push(imageParams.thumbnailSize);
+
+		ImageInfoTool.updateProperty(
+			hash,
+			"thumbnailSize",
+			imageParams.thumbnailSize
+		);
+
+		const metadata = await ImageInfoTool.getMetadata(hash);
 
 		const originalWidth = metadata.width || Infinity;
 
@@ -339,11 +365,12 @@ export default class KoaResponsiveImageRouter extends Router {
 			resolutions = [imgDimensions.width];
 		}
 
-		this.hashToImageData[hash].resolutions = resolutions;
+		ImageInfoTool.updateProperty(hash, "resolutions", resolutions);
 
 		const extensions = [
 			"webp",
 			"png",
+			"jxl",
 			...(imageParams.lossless ? [] : ["jpg", "avif"]),
 		];
 
@@ -351,8 +378,19 @@ export default class KoaResponsiveImageRouter extends Router {
 		let imageHeight = imgDimensions.height;
 		let objectWidth: number = imgDimensions.width;
 
+		const thumbnailExtension = "jpeg";
+
+		const thumbnailTask: Task = {
+			hash: hash,
+			resolution: imageParams.thumbnailSize,
+			fileExtension: thumbnailExtension,
+			cropData: params.crop,
+		};
+
+		const lowResCacheBase64 = this.cacheManager.isInCache(thumbnailTask);
+
 		if (container) {
-			this.hashToImageData[hash].container = container;
+			ImageInfoTool.updateProperty(hash, "container", container);
 
 			if (container.height > 0 && container.width > 0) {
 				const objectSize = this.calculateImageSizeForContainer(
@@ -360,31 +398,90 @@ export default class KoaResponsiveImageRouter extends Router {
 					imgDimensions.height,
 					container.width,
 					container.height,
-					container.object_fit
+					container.objectFit
 				);
 
 				objectWidth = objectSize.width;
 				imageHeight = objectSize.height;
 				imageWidth = container.width;
 
-				if (imageParams.img_style) {
-					imageParams.img_style += `object-fit: ${container.object_fit};`;
+				if (imageParams.imgStyle) {
+					imageParams.imgStyle += `object-fit: ${container.objectFit};`;
 				} else {
-					imageParams.img_style = `object-fit: ${container.object_fit};`;
+					imageParams.imgStyle = `object-fit: ${container.objectFit};`;
 				}
 			} else {
 				throw new Error("Invalid container dimensions");
 			}
 		}
 
-		let html = "<picture>";
+		let html = "";
+
+		const styles: string[] = [
+			`display: inline-block`,
+			`background-size: 100% 100%`,
+			`background-repeat: no-repeat`,
+		];
+
+		if (
+			lowResCacheBase64 &&
+			ImageInfoTool.getImageData(hash).thumbnailSize <=
+				this.cacheManagerResolutionThreshold
+		) {
+			const uniqueId = this.generateUniqueId();
+
+			html += `
+			<style>
+				#${uniqueId}::after {
+					content: "";
+					display: block;
+					position: absolute;
+					top: -5;
+					left: -5;
+					width: calc(100% + 10px);
+					height: calc(100% + 10px);
+					z-index: -1;
+					-webkit-background-size: cover;
+					-moz-background-size: cover;
+					-o-background-size: cover;
+					background-size: cover;
+					background-repeat: no-repeat;
+					background-image: url(data:image/*;base64,${lowResCacheBase64});
+					-webkit-filter: blur(5px);
+					-moz-filter: blur(5px);
+					-o-filter: blur(5px);
+					-ms-filter: blur(5px);
+					filter: blur(5px);
+				}
+			</style>`;
+
+			html += `<picture id="${uniqueId}"`;
+			html += ` style="`;
+
+			styles.push(`overflow: hidden`);
+			styles.push(`position: relative`);
+		} else {
+			html = "<picture ";
+			const imageURL = this.makeImageURL({
+				hash,
+				width: ImageInfoTool.getImageData(hash).thumbnailSize,
+				extension: thumbnailExtension,
+			});
+
+			html += ` style="`;
+
+			styles.push(`background-image: url(${imageURL})`);
+		}
+		html += `${styles.join(";")}"`;
 
 		let sizes = "";
-		if ("sizes_attr" in params && params.sizes_attr) {
-			sizes = params.sizes_attr;
+		if ("sizesAttr" in params && params.sizesAttr) {
+			sizes = params.sizesAttr;
 		} else if ("container" in params && params.container) {
 			sizes += `${objectWidth}px`;
 		}
+
+		html += ">";
 
 		html += this.generateResponsiveImageSources(
 			hash,
@@ -397,7 +494,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			hash,
 			{ width: imageWidth, height: imageHeight },
 			imageParams.lazy,
-			imageParams.img_style,
+			imageParams.imgStyle,
 			imageParams.alt,
 			resolutions
 		);
@@ -419,7 +516,7 @@ export default class KoaResponsiveImageRouter extends Router {
 					const imgURL = this.makeImageURL({
 						hash,
 						width: resolution,
-						format: "jpeg",
+						extension: "jpeg",
 					});
 					return `${imgURL} ${resolution}w`;
 				})
@@ -434,7 +531,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		hash: string,
 		imgDimensions: { width: number; height: number },
 		lazy: boolean,
-		img_style: string | undefined,
+		imgStyle: string | undefined,
 		alt: string | undefined,
 		resolutions: number[]
 	): string {
@@ -447,29 +544,31 @@ export default class KoaResponsiveImageRouter extends Router {
 		const imgURL = this.makeImageURL({
 			hash,
 			width: midResolution,
-			format: "jpeg",
+			extension: "jpeg",
 		});
 
 		const lazyLoading = lazy ? `loading="lazy"` : "";
-		const imgStyle = img_style ? `style="${img_style}"` : "";
+		imgStyle = imgStyle ? `style="${imgStyle}"` : "";
 		const altText = alt ? `alt="${alt}"` : "";
 
 		return `<img class="${getImageClasses({
 			width: imgDimensions.width,
 			height: imgDimensions.height,
-			target_ratio: this.hashToImageData[hash].target_ratio,
-			ratio_diff_threshold:
-				this.hashToImageData[hash].ratio_diff_threshold,
+			targetRatio: ImageInfoTool.getImageData(hash).targetRatio,
+			ratioDiffThreshold:
+				ImageInfoTool.getImageData(hash).ratioDiffThreshold,
 		}).join(" ")}" ${lazyLoading} width="${imgDimensions.width}" height="${
 			imgDimensions.height
 		}" ${imgStyle} src="${imgURL}" ${altText} />`;
 	}
 
-	getRoutes(): Middleware {
-		return this.router.routes();
+	private generateUniqueId() {
+		const uniqueId = `responsive-image-${this.currentId}`;
+		this.currentId += 1;
+		return uniqueId;
 	}
 
-	calculateImageSizeForContainer(
+	public calculateImageSizeForContainer(
 		imageWidth: number,
 		imageHeight: number,
 		containerWidth: number,
@@ -522,7 +621,7 @@ export default class KoaResponsiveImageRouter extends Router {
 		target_ratio: number,
 		ratio_diff_threshold: number,
 		container?: {
-			object_fit: "cover" | "contain";
+			objectFit: "cover" | "contain";
 			width: number;
 			height: number;
 		},
@@ -530,6 +629,7 @@ export default class KoaResponsiveImageRouter extends Router {
 	) {
 		const containerString = container ? JSON.stringify(container) : "";
 		const cropString = crop ? JSON.stringify(crop) : "";
+
 		return crypto
 			.createHash("sha3-256")
 			.update(
@@ -546,19 +646,7 @@ export default class KoaResponsiveImageRouter extends Router {
 			.digest("hex");
 	}
 
-	private async generateImage({
-		hash,
-		resolution,
-		fileExtension,
-	}: {
-		hash: string;
-		resolution: number;
-		fileExtension: correctExtension;
-	}) {
-		const lossless = this.hashToImageData[hash].lossless;
-		return await sharp(this.hashToImageData[hash].originalPath)
-			.resize(resolution)
-			.toFormat(fileExtension, lossless ? { lossless: true } : {})
-			.toBuffer();
+	getRoutes(): Middleware {
+		return this.router.routes();
 	}
 }

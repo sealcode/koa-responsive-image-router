@@ -17,6 +17,7 @@
 		"sourceMap": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "test/**/*"],
+	"files": ["src/types/filru/index.d.ts"],
 	"exclude": ["node_modules/**"]
 }

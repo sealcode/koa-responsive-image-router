@@ -1,23 +1,24 @@
 import { correctExtension, ImageRatioClass } from "../types/imageRouter";
 import { extname, basename } from "path";
+import os from "os";
 
 export function isCorrectExtension(
 	fileExtension: unknown
 ): fileExtension is correctExtension {
-	const extensions = ["avif", "webp", "jpeg", "png"];
+	const extensions = ["avif", "webp", "jpeg", "png", "jxl"];
 	return extensions.includes(fileExtension as string);
 }
 
 export function getImageClasses({
 	width,
 	height,
-	target_ratio,
-	ratio_diff_threshold,
+	targetRatio,
+	ratioDiffThreshold,
 }: {
 	width: number;
 	height: number;
-	target_ratio: number;
-	ratio_diff_threshold: number;
+	targetRatio: number;
+	ratioDiffThreshold: number;
 }): ImageRatioClass[] {
 	const classes: ImageRatioClass[] = [];
 
@@ -27,12 +28,12 @@ export function getImageClasses({
 	else classes.push("vertical", "portrait");
 
 	const ratio = width / height;
-	const ratio_difference = ratio - target_ratio;
+	const ratioDifference = ratio - targetRatio;
 
-	if (Math.abs(ratio_difference) > ratio_diff_threshold) {
+	if (Math.abs(ratioDifference) > ratioDiffThreshold) {
 		classes.push("ratio-crossed-threshold");
 
-		if (ratio_difference > 0) classes.push("ratio-above-threshold");
+		if (ratioDifference > 0) classes.push("ratio-above-threshold");
 		else classes.push("ratio-below-threshold");
 	}
 
@@ -42,14 +43,36 @@ export function getImageClasses({
 export function encodeFilename({
 	width,
 	originalPath,
-	format,
+	extension,
 }: {
 	width: number;
 	originalPath: string;
-	format: string;
+	extension: string;
 }): string {
 	const filename = basename(originalPath)
 		.slice(0, -1 * extname(originalPath).length)
 		.replace(/\./g, "_");
-	return `${filename || "image"}.${width}.${format}`;
+	return `${filename || "image"}.${width}.${extension}`;
+}
+
+export function checkMaxConcurrent(maxConcurrent?: number): number {
+	const availableCpus = os.cpus().length;
+
+	const maxConcurrentWithOneFree = availableCpus > 1 ? availableCpus - 1 : 1;
+
+	const suggestedMaxConcurrent =
+		maxConcurrent !== undefined
+			? Math.min(maxConcurrent, maxConcurrentWithOneFree)
+			: maxConcurrentWithOneFree;
+
+	if (maxConcurrent !== undefined && maxConcurrent > suggestedMaxConcurrent) {
+		console.warn(
+			`Warning: The specified maxConcurrent (${maxConcurrent}) exceeds the recommended limit (${suggestedMaxConcurrent}). Using ${suggestedMaxConcurrent} instead.`
+		);
+		return suggestedMaxConcurrent;
+	} else {
+		return maxConcurrent !== undefined
+			? maxConcurrent
+			: suggestedMaxConcurrent;
+	}
 }

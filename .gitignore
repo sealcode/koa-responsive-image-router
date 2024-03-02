@@ -18,6 +18,12 @@ node_modules/
 lib
 /.log/
 
+# disk cache
+image-cache
+image-cache/*
+smartcrop-cache
+smartcrop-cache/*
+
 # coverage tests
 .nyc_output/*
 .nyc_output/

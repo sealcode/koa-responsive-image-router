@@ -1,12 +1,20 @@
 import assert from "assert";
 import KoaResponsiveImageRouter from "..";
 import { JSDOM } from "jsdom";
+import { imageRouterConfig, paths } from "../../test/config";
 
-const imageRouter = new KoaResponsiveImageRouter(
-	"/static/images",
-	"/tmp/images",
-	7
-);
+// const imageRouter = new KoaResponsiveImageRouter(
+// 	"/static/images",
+// 	"/tmp/images",
+// 	7
+// );
+
+const imageRouter = new KoaResponsiveImageRouter({
+	staticPath: paths.staticImages,
+	thumbnailSize: imageRouterConfig.thumbnailsSize,
+	cacheManagerResolutionThreshold:
+		imageRouterConfig.cacheManagerResolutionThreshold,
+});
 
 describe("Resolutions parser", function () {
 	const input_dir_path = `${__dirname}/../example`;
@@ -23,10 +31,10 @@ describe("Resolutions parser", function () {
 				600, 1000, 2000, 3000, 4000, 5000, 5500, 5820, 5821, 6000, 6500,
 				8000,
 			],
-			sizes_attr: "(max-width: 600) 100vw, 600px",
+			sizesAttr: "(max-width: 600) 100vw, 600px",
 			path: example_img_path,
 			lazy: false,
-			img_style: "width: 600px; height: auto",
+			imgStyle: "width: 600px; height: auto",
 		});
 
 		const dom = new JSDOM(html);

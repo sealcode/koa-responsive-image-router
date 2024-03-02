@@ -1,8 +1,11 @@
+import { CropResult } from "./../types/cacheManager";
 import sharp from "sharp";
 import smartcrop from "smartcrop-sharp";
 import { Buffer } from "buffer";
 import fs from "fs/promises";
 import { randomBytes } from "crypto";
+import { CacheManager } from "./cache/CacheManager";
+import { ImageInfoTool } from "./ImageInfoTool";
 import { SmartCropOptions, DirectCropOptions } from "../types/smartCropImage";
 
 function isSmartCropOptions(
@@ -23,12 +26,29 @@ function isDirectCropOptions(
 	);
 }
 
+async function getSmartCropResult(
+	hash: string,
+	options: SmartCropOptions | DirectCropOptions
+): Promise<CropResult> {
+	const src = ImageInfoTool.getImageData(hash).originalPath;
+
+	const result = await smartcrop.crop(src, {
+		width: options.width,
+		height: options.height,
+	});
+
+	return result;
+}
+
 async function applyCrop(
-	src: string,
+	context: CacheManager,
+	hash: string,
 	tmp_path: string,
 	resolution: number,
 	options: SmartCropOptions | DirectCropOptions
 ): Promise<Buffer> {
+	const src = ImageInfoTool.getImageData(hash).originalPath;
+
 	if (isDirectCropOptions(options)) {
 		const { width, height, x, y } = options;
 		const croppedImageBuffer = await sharp(src)
@@ -38,22 +58,20 @@ async function applyCrop(
 
 		return croppedImageBuffer;
 	} else if (isSmartCropOptions(options)) {
-		const result = await smartcrop.crop(src, {
-			width: options.width,
-			height: options.height,
+		const cropResult = await context.cachedGetSmarctopAnalysisResult({
+			hash: hash,
+			cropData: options,
 		});
-
-		const crop = result.topCrop;
 
 		const randomBytesString = randomBytes(16).toString("hex");
 		const tempDest = `${tmp_path}.${randomBytesString}.cropped.jpeg`;
 
 		await sharp(src)
 			.extract({
-				left: crop.x,
-				top: crop.y,
-				width: crop.width,
-				height: crop.height,
+				left: cropResult.topCrop.x,
+				top: cropResult.topCrop.y,
+				width: cropResult.topCrop.width,
+				height: cropResult.topCrop.height,
 			})
 			.resize({ width: resolution })
 			.toFile(tempDest);
@@ -73,4 +91,5 @@ export {
 	DirectCropOptions,
 	isDirectCropOptions,
 	isSmartCropOptions,
+	getSmartCropResult,
 };

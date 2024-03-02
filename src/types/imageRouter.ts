@@ -1,4 +1,12 @@
 import sharp from "sharp";
+import { CropType } from "./cacheManager";
+
+export type Container = {
+	objectFit: "cover" | "contain" | "";
+	width: number;
+	height: number;
+};
+
 import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
 
 export type BaseImageParameters = {
@@ -6,19 +14,20 @@ export type BaseImageParameters = {
 	alt?: string;
 	lossless?: boolean;
 	lazy?: boolean;
-	img_style?: string;
-	target_ratio?: number;
-	ratio_diff_threshold?: number;
+	imgStyle?: string;
+	targetRatio?: number;
+	ratioDiffThreshold?: number;
 	crop?: SmartCropOptions | DirectCropOptions;
+	thumbnailSize?: number;
 };
 
-type sizes_attr = {
-	sizes_attr: string;
+type sizesAttr = {
+	sizesAttr: string;
 };
 
 type container = {
 	container: {
-		object_fit: "cover" | "contain";
+		objectFit: "cover" | "contain";
 		width: number;
 		height: number;
 	};
@@ -28,22 +37,26 @@ type resolutions = {
 	resolutions: number[];
 };
 
-type SizesImageParameters = BaseImageParameters & sizes_attr;
+type SizesImageParameters = BaseImageParameters & sizesAttr;
+
 type SizesResolutionImageParameters = BaseImageParameters &
-	sizes_attr &
+	sizesAttr &
 	resolutions;
+
 type ResolutionsContainerImageParameters = BaseImageParameters &
 	resolutions &
 	container;
+
 type ContainerImageParameters = BaseImageParameters & container;
 
 export type ImageParametersWithDefaults = {
 	alt: string;
 	lossless: boolean;
 	lazy: boolean;
-	img_style: string;
-	target_ratio: number;
-	ratio_diff_threshold: number;
+	imgStyle: string;
+	targetRatio: number;
+	ratioDiffThreshold: number;
+	thumbnailSize: number;
 };
 
 export type ImageParameters =
@@ -59,21 +72,18 @@ export type Task = {
 	crop: SmartCropOptions | DirectCropOptions | undefined;
 };
 
-export type correctExtension = "jpeg" | "png" | "avif" | "webp";
+export type correctExtension = "jpeg" | "png" | "avif" | "webp" | "jxl";
 
 export type ImageData = {
 	resolutions: number[];
 	lossless: boolean;
 	metadata: Promise<sharp.Metadata> | undefined;
 	originalPath: string;
-	target_ratio: number;
-	ratio_diff_threshold: number;
-	container: {
-		object_fit: "cover" | "contain" | "";
-		width: number;
-		height: number;
-	};
-	crop: SmartCropOptions | DirectCropOptions | undefined;
+	targetRatio: number;
+	ratioDiffThreshold: number;
+	container: Container;
+	crop: CropType;
+	thumbnailSize: number;
 };
 
 export type ImageRatioClass =
