@@ -26,13 +26,12 @@ describe("Resolutions parser", function () {
 			600, 1000, 2000, 3000, 4000, 5000, 5500, 5820,
 		];
 
-		const html = await imageRouter.image({
+		const html = await imageRouter.image(example_img_path, {
 			resolutions: [
 				600, 1000, 2000, 3000, 4000, 5000, 5500, 5820, 5821, 6000, 6500,
 				8000,
 			],
 			sizesAttr: "(max-width: 600) 100vw, 600px",
-			path: example_img_path,
 			lazy: false,
 			imgStyle: "width: 600px; height: auto",
 		});
