@@ -10,7 +10,7 @@ export type Container = {
 import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
 
 export type BaseImageParameters = {
-	path: string;
+	path: string | null;
 	alt?: string;
 	lossless?: boolean;
 	lazy?: boolean;

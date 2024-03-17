@@ -282,6 +282,10 @@ export class KoaResponsiveImageRouter extends Router {
 		let resolutions: number[] = [];
 		let container;
 
+		if (!params.path) {
+			return "";
+		}
+
 		if (
 			"sizesAttr" in params &&
 			params.sizesAttr &&
