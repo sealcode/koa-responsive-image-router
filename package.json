@@ -33,6 +33,7 @@
 		"filru": "^2.1.0",
 		"koa": "^2.13.1",
 		"koa-router": "^10.0.0",
+		"locreq": "^2.4.1",
 		"lru-cache": "^10.0.1",
 		"multiple-scripts-tmux": "^1.1.2",
 		"node-cache": "^5.1.2",
