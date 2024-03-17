@@ -1,5 +1,5 @@
 import assert from "assert";
-import KoaResponsiveImageRouter from "..";
+import { KoaResponsiveImageRouter } from "..";
 import { JSDOM } from "jsdom";
 import { imageRouterConfig, paths } from "../../test/config";
 

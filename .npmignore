@@ -1,32 +1,8 @@
-# Exclude development files and configurations
-src/*
-tsconfig.json
-.arcconfig
-.arclint
-.eslintrc.js
-.editorconfig
-.mocharc.js
-.nycrc
-.prettierrc
-.log
-
-# Exclude test data and scripts
-jenkins.sanity.sh
-example/
-test/app.ts
-
-# Exclude source files, except the ones needed for the library
-lib/*
-
-# Include source files
-!lib/src/*
-!lib/src/**/*
+*
+!package.json
+!package-lock.json
 !@types/*
-
-# Exclude coverage reports
-coverage
-.nyc_output
-.xunit
-
-# Exclude test files
-**/*.test.*
+!@types/**/*
+!lib/*
+!lib/**/*
+!readme.md

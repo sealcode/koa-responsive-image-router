@@ -33,7 +33,7 @@ import {
 	ImageParametersWithDefaults,
 } from "./types/imageRouter";
 
-export default class KoaResponsiveImageRouter extends Router {
+export class KoaResponsiveImageRouter extends Router {
 	private router: Router;
 	// Store low resolution thumbnail
 	private cacheManager: CacheManager;

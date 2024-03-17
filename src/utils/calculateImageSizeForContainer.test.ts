@@ -1,4 +1,4 @@
-import KoaResponsiveImageRouter from "..";
+import { KoaResponsiveImageRouter } from "..";
 import assert from "assert";
 import { imageRouterConfig, paths } from "../../test/config";
 
