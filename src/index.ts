@@ -639,7 +639,7 @@ export class KoaResponsiveImageRouter extends Router {
 			.update(
 				`
 				${basename(original_file_path)}
-				${(await stat(original_file_path)).atime.getTime()}
+				${(await stat(original_file_path)).mtime.getTime()}
 				${JSON.stringify(resolutions)}
 				${JSON.stringify(target_ratio)}
 				${JSON.stringify(ratio_diff_threshold)}
