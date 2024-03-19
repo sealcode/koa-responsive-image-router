@@ -21,11 +21,10 @@ export const ImageInfoTool = new (class {
 			targetRatio: 0,
 			ratioDiffThreshold: 0,
 			container: {
-				objectFit: "",
 				width: 0,
 				height: 0,
 			},
-			crop: undefined,
+			crop: false,
 			thumbnailSize: 0,
 		};
 	}

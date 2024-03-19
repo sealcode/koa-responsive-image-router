@@ -1,37 +1,29 @@
 import Router from "@koa/router";
 import crypto from "crypto";
-
 import { stat } from "fs/promises";
-import { extname, basename } from "path";
 import { Middleware } from "koa";
-
-import { guessResolutions } from "./utils/guessResolutions";
-
+import { basename, extname } from "path";
+import { MONTH } from "./constants/constants";
 import {
 	FilruParameters,
 	Task,
 	ThumbnailCacheParams,
 } from "./types/cacheManager";
-
-import { MONTH } from "./constants/constants";
-
 import {
+	BaseImageParameters,
+	Container,
+	CropDescription,
+	ImageParameters,
+} from "./types/imageRouter";
+import { ImageInfoTool } from "./utils/ImageInfoTool";
+import { CacheManager } from "./utils/cache/CacheManager";
+import { guessResolutions } from "./utils/guessResolutions";
+import {
+	checkMaxConcurrent,
 	encodeFilename,
 	getImageClasses,
 	isCorrectExtension,
-	checkMaxConcurrent,
 } from "./utils/utils";
-
-import { ImageInfoTool } from "./utils/ImageInfoTool";
-
-import { SmartCropOptions, DirectCropOptions } from "./utils/smartCropImage";
-
-import { CacheManager } from "./utils/cache/CacheManager";
-import {
-	BaseImageParameters,
-	ImageParameters,
-	ImageParametersWithDefaults,
-} from "./types/imageRouter";
 
 export class KoaResponsiveImageRouter extends Router {
 	private router: Router;
@@ -231,8 +223,8 @@ export class KoaResponsiveImageRouter extends Router {
 	}
 	private createImageDefaultParameters(
 		params: Partial<BaseImageParameters>
-	): ImageParametersWithDefaults {
-		const result: ImageParametersWithDefaults = {
+	): BaseImageParameters {
+		const result: BaseImageParameters = {
 			alt: typeof params.alt !== "undefined" ? params.alt : "",
 			lossless:
 				typeof params.lossless !== "undefined"
@@ -253,6 +245,7 @@ export class KoaResponsiveImageRouter extends Router {
 				typeof params.thumbnailSize !== "undefined"
 					? params.thumbnailSize
 					: this.defaultThumbnailSize,
+			crop: false,
 		};
 		return result;
 	}
@@ -280,7 +273,7 @@ export class KoaResponsiveImageRouter extends Router {
 	 */
 	async image(path: string, params: ImageParameters): Promise<string> {
 		let resolutions: number[] = [];
-		let container;
+		let container: Container | null = null;
 
 		if (!path) {
 			return "";
@@ -306,6 +299,8 @@ export class KoaResponsiveImageRouter extends Router {
 			);
 		}
 
+		const crop = params.crop || false;
+
 		const imageParams = this.createImageDefaultParameters(params);
 
 		const hash = await this.getHash(
@@ -314,7 +309,7 @@ export class KoaResponsiveImageRouter extends Router {
 			imageParams.targetRatio,
 			imageParams.ratioDiffThreshold,
 			container,
-			params.crop
+			crop
 		);
 
 		ImageInfoTool.initImageData(hash);
@@ -388,7 +383,7 @@ export class KoaResponsiveImageRouter extends Router {
 			hash: hash,
 			resolution: imageParams.thumbnailSize,
 			fileExtension: thumbnailExtension,
-			cropData: params.crop,
+			cropData: crop,
 		};
 
 		const lowResCacheBase64 = this.cacheManager.isInCache(thumbnailTask);
@@ -402,7 +397,7 @@ export class KoaResponsiveImageRouter extends Router {
 					imgDimensions.height,
 					container.width,
 					container.height,
-					container.objectFit
+					container.objectFit || "contain"
 				);
 
 				objectWidth = objectSize.width;
@@ -422,7 +417,7 @@ export class KoaResponsiveImageRouter extends Router {
 		let html = "";
 
 		const styles: string[] = [
-			`display: inline-block`,
+			`display: inline-flex`, // to prevent weird padding at the bottom of the image
 			`background-size: 100% 100%`,
 			`background-repeat: no-repeat`,
 		];
@@ -624,12 +619,8 @@ export class KoaResponsiveImageRouter extends Router {
 		resolutions: number[],
 		target_ratio: number,
 		ratio_diff_threshold: number,
-		container?: {
-			objectFit: "cover" | "contain";
-			width: number;
-			height: number;
-		},
-		crop?: SmartCropOptions | DirectCropOptions
+		container: Container | null,
+		crop: CropDescription
 	) {
 		const containerString = container ? JSON.stringify(container) : "";
 		const cropString = crop ? JSON.stringify(crop) : "";

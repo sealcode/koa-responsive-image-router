@@ -7,6 +7,7 @@ import { randomBytes } from "crypto";
 import { CacheManager } from "./cache/CacheManager";
 import { ImageInfoTool } from "./ImageInfoTool";
 import { SmartCropOptions, DirectCropOptions } from "../types/smartCropImage";
+import { CropDescription } from "../types/imageRouter";
 
 function isSmartCropOptions(
 	value: SmartCropOptions | DirectCropOptions
@@ -45,7 +46,7 @@ async function applyCrop(
 	hash: string,
 	tmp_path: string,
 	resolution: number,
-	options: SmartCropOptions | DirectCropOptions
+	options: Exclude<CropDescription, false>
 ): Promise<Buffer> {
 	const src = ImageInfoTool.getImageData(hash).originalPath;
 

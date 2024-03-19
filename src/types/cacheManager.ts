@@ -1,5 +1,6 @@
 import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
 import { predicates } from "@sealcode/ts-predicates";
+import { CropDescription } from "./imageRouter";
 
 // Definition of the image data structure stored in the cache
 export type CacheImageData = {
@@ -29,13 +30,11 @@ export type ThumbnailCacheParams = {
 	maxCacheSize?: number;
 };
 
-export type CropType = SmartCropOptions | DirectCropOptions | undefined;
-
 export type Task = {
 	hash: string;
 	resolution: number;
 	fileExtension: string;
-	cropData: CropType;
+	cropData: CropDescription;
 };
 
 export type SmartcropTask = {

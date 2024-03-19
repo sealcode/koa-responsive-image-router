@@ -220,7 +220,7 @@ export class CacheManager {
 				this.chcekResolution(hash, resolution)
 			) {
 				try {
-					if (is(cropData, predicates.undefined)) {
+					if (!cropData) {
 						const imageBuffer = await this.generateImage(
 							hash,
 							resolution,

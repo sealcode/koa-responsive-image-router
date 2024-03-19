@@ -1,68 +1,41 @@
 import sharp from "sharp";
-import { CropType } from "./cacheManager";
-
-export type Container = {
-	objectFit: "cover" | "contain" | "";
-	width: number;
-	height: number;
-};
 
 import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
 
+export type CropDescription = SmartCropOptions | DirectCropOptions | false;
+
 export type BaseImageParameters = {
-	alt?: string;
-	lossless?: boolean;
-	lazy?: boolean;
-	imgStyle?: string;
-	targetRatio?: number;
-	ratioDiffThreshold?: number;
-	crop?: SmartCropOptions | DirectCropOptions;
-	thumbnailSize?: number;
-};
-
-type sizesAttr = {
-	sizesAttr: string;
-};
-
-type container = {
-	container: {
-		objectFit: "cover" | "contain";
-		width: number;
-		height: number;
-	};
-};
-
-type resolutions = {
-	resolutions: number[];
-};
-
-type SizesImageParameters = BaseImageParameters & sizesAttr;
-
-type SizesResolutionImageParameters = BaseImageParameters &
-	sizesAttr &
-	resolutions;
-
-type ResolutionsContainerImageParameters = BaseImageParameters &
-	resolutions &
-	container;
-
-type ContainerImageParameters = BaseImageParameters & container;
-
-export type ImageParametersWithDefaults = {
 	alt: string;
 	lossless: boolean;
 	lazy: boolean;
 	imgStyle: string;
 	targetRatio: number;
 	ratioDiffThreshold: number;
+	crop: CropDescription;
 	thumbnailSize: number;
 };
 
-export type ImageParameters =
-	| SizesResolutionImageParameters
-	| SizesImageParameters
-	| ResolutionsContainerImageParameters
-	| ContainerImageParameters;
+type sizesAttr = {
+	sizesAttr: string;
+};
+
+export type Container = {
+	objectFit?: "cover" | "contain";
+	width: number;
+	height: number;
+};
+
+type resolutions = {
+	resolutions: number[];
+};
+
+export type ImageParameters = Partial<BaseImageParameters> &
+	(
+		| (sizesAttr & resolutions)
+		| sizesAttr
+		| (resolutions & { container: Container })
+		| { container: Container }
+	);
 
 export type Task = {
 	hash: string;
@@ -81,7 +54,7 @@ export type ImageData = {
 	targetRatio: number;
 	ratioDiffThreshold: number;
 	container: Container;
-	crop: CropType;
+	crop: CropDescription;
 	thumbnailSize: number;
 };
 
