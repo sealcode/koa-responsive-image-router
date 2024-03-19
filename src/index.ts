@@ -415,7 +415,7 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const styles: string[] = [
 			`display: inline-flex`, // to prevent weird padding at the bottom of the image
-			`background-size: 100% 100%`,
+			`background-size: ${container?.objectFit || "contain"}`,
 			`background-repeat: no-repeat`,
 		];
 
@@ -490,7 +490,7 @@ export class KoaResponsiveImageRouter extends Router {
 			hash,
 			{ width: imageWidth, height: imageHeight },
 			imageParams.lazy,
-			imageParams.imgStyle,
+			imageParams.imgStyle || "width: 100%; height: 100%",
 			imageParams.alt,
 			resolutions
 		);
@@ -569,7 +569,7 @@ export class KoaResponsiveImageRouter extends Router {
 		imageHeight: number,
 		containerWidth: number,
 		containerHeight: number,
-		objectFit: string
+		objectFit: string = "contain"
 	): { width: number; height: number } {
 		let targetWidth: number, targetHeight: number;
 
