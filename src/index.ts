@@ -403,12 +403,9 @@ export class KoaResponsiveImageRouter extends Router {
 				objectWidth = objectSize.width;
 				imageHeight = objectSize.height;
 				imageWidth = container.width;
-
-				if (imageParams.imgStyle) {
-					imageParams.imgStyle += `object-fit: ${container.objectFit};`;
-				} else {
-					imageParams.imgStyle = `object-fit: ${container.objectFit};`;
-				}
+				imageParams.imgStyle =
+					(imageParams.imgStyle || "") +
+					`object-fit: ${container.objectFit || "contain"};`;
 			} else {
 				throw new Error("Invalid container dimensions");
 			}
