@@ -19,7 +19,7 @@ export type SmartcropMap = Map<string, Promise<CropResult>>;
 export type ImageMap = Map<string, Promise<Buffer>>;
 
 export type FilruParameters = {
-	storagePath?: string;
+	storagePath: string;
 	diskCacheSize?: number;
 	pruneInterval?: number;
 	maxAge?: number;

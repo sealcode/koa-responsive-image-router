@@ -8,6 +8,7 @@ const locreq = _locreq(__dirname);
 export const paths = {
 	tmpImages: "/tmp/images",
 	storageImages: locreq.resolve("image-cache"),
+	smartcropCache: locreq.resolve("smartcrop-cache"),
 	staticImages: "/static/images",
 	inputDir: path.join(projectRoot, "example"),
 	exampleImg: path.join(projectRoot, "example", "image.png"),

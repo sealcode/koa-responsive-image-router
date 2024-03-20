@@ -24,6 +24,7 @@ import {
 	getImageClasses,
 	isCorrectExtension,
 } from "./utils/utils";
+import { fit } from "object-fit-math";
 
 export class KoaResponsiveImageRouter extends Router {
 	private router: Router;
@@ -47,7 +48,7 @@ export class KoaResponsiveImageRouter extends Router {
 	 * than this threshold will be stored on disk, while smaller images will be
 	 * stored in memory.
 	 * @param {string} imageStoragePath - cache directory for images
-	 * @param {string} smartCropDtoragePath - cache directory for smartcrop results
+	 * @param {string} smartCropStoragePath - cache directory for smartcrop results
 	 * @param {number} [maxImagesConcurrent] - number of threads
 	 * @param {number} [diskImageCacheSize] - max allowed size of the cache on disk in
 	 * mega bytes. (default: 50 MB)
@@ -64,7 +65,7 @@ export class KoaResponsiveImageRouter extends Router {
 		thumbnailSize,
 		cacheManagerResolutionThreshold,
 		imageStoragePath,
-		smartCropDtoragePath,
+		smartCropStoragePath,
 		maxImagesConcurrent,
 		diskImageCacheSize,
 		smartCropCacheSize,
@@ -76,8 +77,8 @@ export class KoaResponsiveImageRouter extends Router {
 		staticPath: string;
 		thumbnailSize: number;
 		cacheManagerResolutionThreshold: number;
-		imageStoragePath?: string;
-		smartCropDtoragePath?: string;
+		imageStoragePath: string;
+		smartCropStoragePath: string;
 		maxImagesConcurrent?: number;
 		diskImageCacheSize?: number;
 		smartCropCacheSize?: number;
@@ -101,7 +102,7 @@ export class KoaResponsiveImageRouter extends Router {
 		};
 
 		const smartcropCacheParams: FilruParameters = {
-			storagePath: smartCropDtoragePath,
+			storagePath: smartCropStoragePath,
 			diskCacheSize: smartCropCacheSize,
 			pruneInterval: pruneInterval,
 			maxAge: maxAge,
@@ -246,6 +247,7 @@ export class KoaResponsiveImageRouter extends Router {
 					? params.thumbnailSize
 					: this.defaultThumbnailSize,
 			crop: false,
+			style: "",
 		};
 		return result;
 	}
@@ -279,6 +281,8 @@ export class KoaResponsiveImageRouter extends Router {
 			return "";
 		}
 
+		const metadata = await ImageInfoTool.getMetadata(path);
+
 		if (
 			"sizesAttr" in params &&
 			params.sizesAttr &&
@@ -292,7 +296,12 @@ export class KoaResponsiveImageRouter extends Router {
 			container = params.container;
 		} else if ("container" in params) {
 			container = params.container;
-			resolutions = guessResolutions(`${container.width}px`);
+			resolutions = guessResolutions(
+				`${container.width}px`,
+				{},
+				container,
+				metadata as { width: number; height: number }
+			);
 		} else {
 			throw new Error(
 				"Invalid parameters. You must provide 'sizesAttr', or 'resolutions' and 'container', or 'container'."
@@ -339,8 +348,6 @@ export class KoaResponsiveImageRouter extends Router {
 			imageParams.thumbnailSize
 		);
 
-		const metadata = await ImageInfoTool.getMetadata(hash);
-
 		const originalWidth = metadata.width || Infinity;
 
 		resolutions = Array.from(
@@ -352,7 +359,11 @@ export class KoaResponsiveImageRouter extends Router {
 			height: metadata.height || 100,
 		};
 
-		if (resolutions.length == 0) {
+		if (
+			resolutions.filter((l) => l != imageParams.thumbnailSize).length ==
+			0
+		) {
+			// no resolutions other than the thumbnail, let's add at least one
 			resolutions = [imgDimensions.width];
 		}
 
@@ -405,17 +416,31 @@ export class KoaResponsiveImageRouter extends Router {
 				imageWidth = container.width;
 				imageParams.imgStyle =
 					(imageParams.imgStyle || "") +
-					`object-fit: ${container.objectFit || "contain"};`;
+					`object-fit: ${
+						container.objectFit || "contain"
+					}; width: 100%; height: 100%;`;
 			} else {
 				throw new Error("Invalid container dimensions");
 			}
 		}
 
 		let html = "";
+		let background_size = "100% 100%";
+		if (container) {
+			const fitted_image_size = fit(
+				container,
+				imgDimensions,
+				container.objectFit || "contain"
+			);
+			background_size = `${
+				(fitted_image_size.width / container.width) * 100
+			}% ${(fitted_image_size.height / container.height) * 100}%`;
+		}
 
 		const styles: string[] = [
 			`display: inline-flex`, // to prevent weird padding at the bottom of the image
-			`background-size: ${container?.objectFit || "contain"}`,
+			`background-size: ${background_size}`,
+			`background-position: 50%`,
 			`background-repeat: no-repeat`,
 		];
 
@@ -426,16 +451,32 @@ export class KoaResponsiveImageRouter extends Router {
 		) {
 			const uniqueId = this.generateUniqueId();
 
+			let thumbnail_display_width = "calc(100% + 10px)";
+			let thumbnail_display_height = "calc(100% + 10px)";
+			if (container) {
+				const fitted_image_size = fit(
+					container,
+					imgDimensions,
+					container.objectFit || "contain"
+				);
+				thumbnail_display_width = `${
+					(fitted_image_size.width / container.width) * 100
+				}%`;
+				thumbnail_display_height = `${
+					(fitted_image_size.height / container.height) * 100
+				}%`;
+			}
+
 			html += `
 			<style>
 				#${uniqueId}::after {
 					content: "";
 					display: block;
 					position: absolute;
-					top: -5;
-					left: -5;
-					width: calc(100% + 10px);
-					height: calc(100% + 10px);
+					top: -5px;
+					left: -5px;
+					width: ${thumbnail_display_width};
+					height: ${thumbnail_display_height};
 					z-index: -1;
 					-webkit-background-size: cover;
 					-moz-background-size: cover;
@@ -468,13 +509,25 @@ export class KoaResponsiveImageRouter extends Router {
 
 			styles.push(`background-image: url(${imageURL})`);
 		}
-		html += `${styles.join(";")}"`;
+		html += `${styles.join(";")} ${params.style || ""}"`;
 
 		let sizes = "";
 		if ("sizesAttr" in params && params.sizesAttr) {
 			sizes = params.sizesAttr;
 		} else if ("container" in params && params.container) {
-			sizes += `${objectWidth}px`;
+			const fitted_image_size = fit(
+				params.container,
+				metadata as { width: number; height: number },
+				params.container.objectFit || "contain"
+			);
+			sizes += `${
+				params.container.width
+					? Math.min(
+							fitted_image_size.width,
+							metadata.width as number
+					  )
+					: objectWidth
+			}px`;
 		}
 
 		html += ">";

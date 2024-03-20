@@ -9,6 +9,7 @@ export type BaseImageParameters = {
 	lossless: boolean;
 	lazy: boolean;
 	imgStyle: string;
+	style: string;
 	targetRatio: number;
 	ratioDiffThreshold: number;
 	crop: CropDescription;
@@ -49,7 +50,6 @@ export type correctExtension = "jpeg" | "png" | "avif" | "webp" | "jxl";
 export type ImageData = {
 	resolutions: number[];
 	lossless: boolean;
-	metadata: Promise<sharp.Metadata> | undefined;
 	originalPath: string;
 	targetRatio: number;
 	ratioDiffThreshold: number;

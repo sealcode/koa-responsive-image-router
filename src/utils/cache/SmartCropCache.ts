@@ -5,19 +5,8 @@ import {
 	JsonCropResultShape,
 } from "../../types/cacheManager";
 import { LocalCache } from "./LocalCache";
-import _locreq from "locreq";
-export const locreq = _locreq(__dirname);
 
 export class SmartcropCache extends LocalCache {
-	constructor(params: FilruParameters) {
-		if (params.storagePath && params.storagePath !== "") {
-			super(params);
-		} else {
-			params.storagePath = locreq.resolve("smartcrop-cache");
-			super(params);
-		}
-	}
-
 	public async get(key: string): Promise<CropResult | null> {
 		const buffer = await this.cache.get(key);
 		if (buffer) {

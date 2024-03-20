@@ -3,6 +3,7 @@ import { ImageData } from "../types/imageRouter";
 
 export const ImageInfoTool = new (class {
 	hashToImageData: Record<string, ImageData> = {};
+	pathToMetadata: Record<string, Promise<sharp.Metadata> | undefined> = {};
 
 	public getImageData(hash: string): ImageData {
 		if (this.hashToImageData[hash]) {
@@ -16,7 +17,6 @@ export const ImageInfoTool = new (class {
 		this.hashToImageData[hash] = {
 			resolutions: [],
 			lossless: false,
-			metadata: undefined,
 			originalPath: "",
 			targetRatio: 0,
 			ratioDiffThreshold: 0,
@@ -45,14 +45,13 @@ export const ImageInfoTool = new (class {
 		this.hashToImageData[hash][propertyName] = param;
 	}
 
-	public async getMetadata(hash: string): Promise<sharp.Metadata> {
-		if (this.getImageData(hash).metadata) {
-			return this.getImageData(hash).metadata as Promise<sharp.Metadata>;
+	public async getMetadata(path: string): Promise<sharp.Metadata> {
+		const value = this.pathToMetadata[path];
+		if (value) {
+			return value;
 		} else {
-			const metadata: Promise<sharp.Metadata> = sharp(
-				this.getImageData(hash).originalPath
-			).metadata();
-			this.updateProperty(hash, "metadata", metadata);
+			const metadata: Promise<sharp.Metadata> = sharp(path).metadata();
+			this.pathToMetadata[path] = metadata;
 			return metadata;
 		}
 	}

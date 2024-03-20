@@ -1,9 +1,11 @@
+import { fit } from "object-fit-math";
 import {
 	Condition,
 	Ranges,
 	Unit,
 	resolutionGuessOptions,
 } from "../types/guessResolutions";
+import { Container } from "../types/imageRouter";
 
 const sortAscFn = (a: number, b: number) => a - b;
 
@@ -198,7 +200,9 @@ const guessResolutions = (
 	{
 		min_viewport_size = 320,
 		max_viewport_size = 1920,
-	}: resolutionGuessOptions = {}
+	}: resolutionGuessOptions = {},
+	container?: Container,
+	image_size?: { width: number; height: number }
 ): number[] => {
 	const gap_fills: number[] = [],
 		resolutions: number[] = [],
@@ -254,6 +258,18 @@ const guessResolutions = (
 
 	for (const res of constant_resolutions_unsorted) {
 		constant_resolutions.push(res, res * 2);
+	}
+
+	if (container && image_size) {
+		const fitted_image_size = fit(
+			container,
+			image_size,
+			container.objectFit || "contain"
+		);
+		constant_resolutions.push(
+			Math.min(image_size.width, fitted_image_size.width),
+			Math.min(image_size.width, fitted_image_size.width) * 2
+		);
 	}
 
 	const filtered_resolutions = resolutions.map((res) => {

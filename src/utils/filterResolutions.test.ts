@@ -2,6 +2,8 @@ import assert from "assert";
 import { KoaResponsiveImageRouter } from "..";
 import { JSDOM } from "jsdom";
 import { imageRouterConfig, paths } from "../../test/config";
+import _locreq from "locreq";
+const locreq = _locreq(__dirname);
 
 // const imageRouter = new KoaResponsiveImageRouter(
 // 	"/static/images",
@@ -12,18 +14,20 @@ import { imageRouterConfig, paths } from "../../test/config";
 const imageRouter = new KoaResponsiveImageRouter({
 	staticPath: paths.staticImages,
 	thumbnailSize: imageRouterConfig.thumbnailsSize,
+	smartCropStoragePath: paths.smartcropCache,
+	imageStoragePath: paths.storageImages,
 	cacheManagerResolutionThreshold:
 		imageRouterConfig.cacheManagerResolutionThreshold,
 });
 
 describe("Resolutions parser", function () {
-	const input_dir_path = `${__dirname}/../example`;
+	const input_dir_path = locreq.resolve("example");
 
 	const example_img_path = `${input_dir_path}/image.png`;
 
 	it("Contains only resolutions smaller or equal to those in resolutions", async function () {
 		const expectedResolutions = [
-			600, 1000, 2000, 3000, 4000, 5000, 5500, 5820,
+			10, 600, 1000, 2000, 3000, 4000, 5000, 5500, 5820,
 		];
 
 		const html = await imageRouter.image(example_img_path, {

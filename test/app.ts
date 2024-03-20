@@ -9,6 +9,8 @@ const router = new Router();
 const imageRouter = new KoaResponsiveImageRouter({
 	staticPath: paths.staticImages,
 	thumbnailSize: imageRouterConfig.thumbnailsSize,
+	smartCropStoragePath: paths.smartcropCache,
+	imageStoragePath: paths.storageImages,
 	cacheManagerResolutionThreshold:
 		imageRouterConfig.cacheManagerResolutionThreshold,
 });

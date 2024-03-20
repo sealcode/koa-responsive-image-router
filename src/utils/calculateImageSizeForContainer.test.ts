@@ -2,7 +2,7 @@ import { KoaResponsiveImageRouter } from "..";
 import assert from "assert";
 import { imageRouterConfig, paths } from "../../test/config";
 
-describe.only("calculateImageSizeForContainer", () => {
+describe("calculateImageSizeForContainer", () => {
 	// const imageRouter = new KoaResponsiveImageRouter(
 	// 	"/static/images",
 	// 	"/tmp/images"
@@ -10,6 +10,8 @@ describe.only("calculateImageSizeForContainer", () => {
 
 	const imageRouter = new KoaResponsiveImageRouter({
 		staticPath: paths.staticImages,
+		smartCropStoragePath: paths.smartcropCache,
+		imageStoragePath: paths.storageImages,
 		thumbnailSize: imageRouterConfig.thumbnailsSize,
 		cacheManagerResolutionThreshold:
 			imageRouterConfig.cacheManagerResolutionThreshold,

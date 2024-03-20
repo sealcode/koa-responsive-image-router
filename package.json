@@ -37,6 +37,7 @@
 		"lru-cache": "^10.0.1",
 		"multiple-scripts-tmux": "^1.1.2",
 		"node-cache": "^5.1.2",
+		"object-fit-math": "^1.0.0",
 		"object-hash": "^3.0.0",
 		"sharp": "^0.32.5",
 		"smartcrop-sharp": "^2.0.8"
