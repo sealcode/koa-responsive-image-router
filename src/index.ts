@@ -25,6 +25,7 @@ import {
 	isCorrectExtension,
 } from "./utils/utils";
 import { fit } from "object-fit-math";
+import { hasField } from "@sealcode/ts-predicates";
 
 export class KoaResponsiveImageRouter extends Router {
 	private router: Router;
@@ -252,6 +253,51 @@ export class KoaResponsiveImageRouter extends Router {
 		return result;
 	}
 
+	prepareResolutions({
+		sizesAttr,
+		resolutions,
+		container,
+		original_image_size,
+		thumbnailSize,
+	}: {
+		sizesAttr?: string;
+		resolutions?: number[];
+		container?: Container;
+		original_image_size: { width: number; height: number };
+		thumbnailSize: number;
+	}) {
+		if (!resolutions) {
+			if (sizesAttr) {
+				resolutions = guessResolutions(sizesAttr);
+			} else if (container) {
+				resolutions = guessResolutions(
+					`${container.width}px`,
+					{},
+					container,
+					original_image_size
+				);
+			} else {
+				throw new Error(
+					"Invalid parameters. You must provide at least either: (resolutions) or (sizesAttr) or (container)"
+				);
+			}
+		}
+		resolutions.push(thumbnailSize);
+		resolutions = Array.from(
+			new Set(
+				resolutions.filter(
+					(width) => width <= original_image_size.width
+				)
+			)
+		);
+		if (resolutions.filter((l) => l != thumbnailSize).length == 0) {
+			// no resolutions other than the thumbnail, let's add at least one
+			resolutions = [original_image_size.width];
+		}
+		resolutions = resolutions.map((l) => Math.round(l));
+		return resolutions;
+	}
+
 	/**
 	 * Generates an <img> tag with responsive attributes based on the provided parameters.
 	 *
@@ -274,8 +320,9 @@ export class KoaResponsiveImageRouter extends Router {
 	 * @return {Promise<string>} - A string representing the HTML <img> tag with appropriate attributes and CSS classes.
 	 */
 	async image(path: string, params: ImageParameters): Promise<string> {
-		let resolutions: number[] = [];
-		let container: Container | null = null;
+		let container: Container | null = hasField("container", params)
+			? params.container
+			: null;
 
 		if (!path) {
 			return "";
@@ -283,34 +330,18 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const metadata = await ImageInfoTool.getMetadata(path);
 
-		if (
-			"sizesAttr" in params &&
-			params.sizesAttr &&
-			"resolutions" in params
-		) {
-			resolutions = params.resolutions;
-		} else if ("sizesAttr" in params && params.sizesAttr) {
-			resolutions = guessResolutions(params.sizesAttr);
-		} else if ("resolutions" in params && "container" in params) {
-			resolutions = params.resolutions;
-			container = params.container;
-		} else if ("container" in params) {
-			container = params.container;
-			resolutions = guessResolutions(
-				`${container.width}px`,
-				{},
-				container,
-				metadata as { width: number; height: number }
-			);
-		} else {
-			throw new Error(
-				"Invalid parameters. You must provide 'sizesAttr', or 'resolutions' and 'container', or 'container'."
-			);
-		}
-
 		const crop = params.crop || false;
 
 		const imageParams = this.createImageDefaultParameters(params);
+
+		const resolutions = this.prepareResolutions({
+			...params,
+			original_image_size: {
+				width: metadata.width as number,
+				height: metadata.height as number,
+			},
+			thumbnailSize: params.thumbnailSize || this.defaultThumbnailSize,
+		});
 
 		const hash = await this.getHash(
 			path,
@@ -322,7 +353,7 @@ export class KoaResponsiveImageRouter extends Router {
 		);
 
 		ImageInfoTool.initImageData(hash);
-
+		ImageInfoTool.updateProperty(hash, "resolutions", resolutions);
 		ImageInfoTool.updateProperty(hash, "lossless", imageParams.lossless);
 		ImageInfoTool.updateProperty(hash, "originalPath", path);
 		ImageInfoTool.updateProperty(
@@ -340,42 +371,16 @@ export class KoaResponsiveImageRouter extends Router {
 			ImageInfoTool.updateProperty(hash, "crop", params.crop);
 		}
 
-		resolutions.push(imageParams.thumbnailSize);
-
 		ImageInfoTool.updateProperty(
 			hash,
 			"thumbnailSize",
 			imageParams.thumbnailSize
 		);
 
-		const originalWidth = metadata.width || Infinity;
-
-		resolutions = Array.from(
-			new Set(resolutions.filter((width) => width <= originalWidth))
-		);
-
 		const imgDimensions = {
 			width: metadata.width || 100,
 			height: metadata.height || 100,
 		};
-
-		if (
-			resolutions.filter((l) => l != imageParams.thumbnailSize).length ==
-			0
-		) {
-			// no resolutions other than the thumbnail, let's add at least one
-			resolutions = [imgDimensions.width];
-		}
-
-		resolutions = resolutions.filter(
-			(width) => width <= (metadata.width || Infinity)
-		);
-
-		if (resolutions.length == 0) {
-			resolutions = [imgDimensions.width];
-		}
-
-		ImageInfoTool.updateProperty(hash, "resolutions", resolutions);
 
 		const extensions = [
 			"webp",
@@ -567,7 +572,7 @@ export class KoaResponsiveImageRouter extends Router {
 						width: resolution,
 						extension: "jpeg",
 					});
-					return `${imgURL} ${resolution}w`;
+					return `${imgURL} ${Math.round(resolution)}w`;
 				})
 				.join(", ");
 			return `<source srcset="${srcset}" sizes="${sizes}" type="image/${extension}" />`;
