@@ -9,7 +9,6 @@ import { DiskImageCache } from "./DiskImageCache";
 
 import {
 	FilruParameters,
-	QueueTask,
 	Task,
 	ThumbnailCacheParams,
 } from "../../types/cacheManager";
@@ -21,7 +20,6 @@ import {
 	SmartcropTask,
 } from "./../../types/cacheManager";
 import { isCorrectExtension } from "../utils";
-import { is, predicates } from "@sealcode/ts-predicates";
 import { ImageInfoTool } from "../ImageInfoTool";
 import { applyCrop, getSmartCropResult } from "../smartCropImage";
 import sharp from "sharp";
@@ -31,6 +29,7 @@ export class CacheManager {
 	private diskImageCache: DiskImageCache;
 	private smartcropCache: SmartcropCache;
 	private imageQueue: Queue;
+	private smartcropQueue: Queue;
 	private enqueuedImagePromises: ImageMap = new Map();
 	private enqueuedSmartcropPromises: SmartcropMap = new Map();
 
@@ -48,7 +47,18 @@ export class CacheManager {
 		this.smartcropCache = new SmartcropCache(SmartcropCacheParams);
 
 		this.imageQueue = new Queue(
-			(task, cb) => void this.processQueueTask(task, cb),
+			(task, cb) => {
+				void this.processImage(task, cb);
+			},
+			{
+				concurrent: maxImagesConcurrent,
+			}
+		);
+
+		this.smartcropQueue = new Queue(
+			(task, cb) => {
+				void this.processSmartCrop(task, cb);
+			},
 			{
 				concurrent: maxImagesConcurrent,
 			}
@@ -63,7 +73,7 @@ export class CacheManager {
 	public cachedGetProcessedImage(task: Task): Promise<Buffer> {
 		return this.enqueueProcessing<Buffer>(
 			this.enqueuedImagePromises,
-			"image",
+			this.imageQueue,
 			task
 		);
 	}
@@ -73,7 +83,7 @@ export class CacheManager {
 	): Promise<CropResult> {
 		return this.enqueueProcessing<CropResult>(
 			this.enqueuedSmartcropPromises,
-			"smartcrop-analysis",
+			this.smartcropQueue,
 			task
 		);
 	}
@@ -113,19 +123,19 @@ export class CacheManager {
 
 	private async enqueueProcessing<Buffer>(
 		enqueuedPromises: ImageMap,
-		type: "image",
+		queue: Queue,
 		data: Task
 	): Promise<Buffer>;
 
 	private async enqueueProcessing<CropResult>(
 		enqueuedPromises: SmartcropMap,
-		type: "smartcrop-analysis",
+		queue: Queue,
 		data: SmartcropTask
 	): Promise<CropResult>;
 
 	private async enqueueProcessing<T extends Buffer | CropResult>(
-		enqueuedPromises: ImageMap | SmartcropMap,
-		type: "image" | "smartcrop-analysis",
+		enqueuedPromises: Map<string, Promise<T>>,
+		queue: Queue,
 		data: Task | SmartcropTask
 	): Promise<T> {
 		const hash = this.getTaskHash(data);
@@ -147,8 +157,8 @@ export class CacheManager {
 		}
 
 		const promise = new Promise<T>((resolve, reject) => {
-			this.imageQueue.push(
-				{ type, data },
+			queue.push(
+				data,
 				(error: Error | null, result: Buffer | CropResult | null) => {
 					if (error) {
 						reject(error);
@@ -167,46 +177,16 @@ export class CacheManager {
 			);
 		});
 
-		if (this.isImageMap(enqueuedPromises)) {
-			enqueuedPromises.set(hash, promise as Promise<Buffer>);
-		} else if (this.isSmartcropMap(enqueuedPromises)) {
-			enqueuedPromises.set(hash, promise as Promise<CropResult>);
-		}
+		enqueuedPromises.set(hash, promise);
 
 		return promise;
 	}
 
-	private isImageMap(map: ImageMap | SmartcropMap): map is ImageMap {
-		return (map as ImageMap).set !== undefined;
-	}
-
-	private isSmartcropMap(map: ImageMap | SmartcropMap): map is SmartcropMap {
-		return (map as SmartcropMap).set !== undefined;
-	}
-
 	private isInImageQueue(
-		enqueuedPromises: ImageMap | SmartcropMap,
+		enqueuedPromises: Map<string, Promise<unknown>>,
 		hash: string
 	): boolean {
 		return enqueuedPromises.has(hash);
-	}
-
-	private async processQueueTask(
-		task: QueueTask,
-		cb: (arg1: Error) => void
-	): Promise<void> {
-		const { type } = task;
-		try {
-			if (type === "image") {
-				await this.processImage(task.data, cb);
-			} else if (type === "smartcrop-analysis") {
-				await this.processSmartCrop(task.data, cb);
-			} else {
-				cb(new Error(`Unknown task process type`));
-			}
-		} catch (error) {
-			cb(error);
-		}
 	}
 
 	private async processImage(
