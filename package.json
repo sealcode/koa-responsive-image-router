@@ -1,6 +1,6 @@
 {
 	"name": "koa-responsive-image-router",
-	"version": "0.2.17",
+	"version": "0.2.18",
 	"description": "Koa router that helps to serve responsive images in an SSR app",
 	"main": "lib/src/index.js",
 	"scripts": {
