@@ -681,7 +681,7 @@ export class KoaResponsiveImageRouter extends Router {
 		const cropString = crop ? JSON.stringify(crop) : "";
 
 		return crypto
-			.createHash("sha3-256")
+			.createHash("SHA1")
 			.update(
 				`
 				${basename(original_file_path)}
