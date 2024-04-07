@@ -383,9 +383,9 @@ export class KoaResponsiveImageRouter extends Router {
 		};
 
 		const extensions = [
+			"jxl",
 			"webp",
 			"png",
-			"jxl",
 			...(imageParams.lossless ? [] : ["jpg", "avif"]),
 		];
 
@@ -570,7 +570,7 @@ export class KoaResponsiveImageRouter extends Router {
 					const imgURL = this.makeImageURL({
 						hash,
 						width: resolution,
-						extension: "jpeg",
+						extension,
 					});
 					return `${imgURL} ${Math.round(resolution)}w`;
 				})
