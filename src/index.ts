@@ -669,7 +669,7 @@ export class KoaResponsiveImageRouter extends Router {
 		};
 	}
 
-	private async getHash(
+	private getHash(
 		original_file_path: string,
 		resolutions: number[],
 		target_ratio: number,
@@ -685,7 +685,9 @@ export class KoaResponsiveImageRouter extends Router {
 			.update(
 				`
 				${basename(original_file_path)}
-				${(await stat(original_file_path)).mtime.getTime()}
+				${
+					"" /* (await stat(original_file_path)).mtime.getTime()  // -- commented out. seems like it's not worth checking the mtime each time. Let's assume that if the file changes, so does its filename. */
+				}
 				${JSON.stringify(resolutions)}
 				${JSON.stringify(target_ratio)}
 				${JSON.stringify(ratio_diff_threshold)}
