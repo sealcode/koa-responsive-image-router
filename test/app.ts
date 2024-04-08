@@ -103,7 +103,7 @@ async function startApp(): Promise<void> {
 		const promises = [];
 
 		for (let i = 1; i <= ratio_images_count; i++) {
-			const path = `${ratios_path}/${i}.jpg`;
+			const path = `${ratios_path}/${i}.jpeg`;
 
 			promises.push(
 				imageRouter.image(path, {
