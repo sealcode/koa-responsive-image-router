@@ -45,7 +45,7 @@ export type Task = {
 	crop: SmartCropOptions | DirectCropOptions | undefined;
 };
 
-export type correctExtension = "jpeg" | "png" | "avif" | "webp" | "jxl";
+export type correctExtension = "jpeg" | "png" | "avif" | "webp";
 
 export type ImageData = {
 	resolutions: number[];

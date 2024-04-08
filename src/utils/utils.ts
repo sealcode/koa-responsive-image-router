@@ -5,7 +5,7 @@ import os from "os";
 export function isCorrectExtension(
 	fileExtension: unknown
 ): fileExtension is correctExtension {
-	const extensions = ["avif", "webp", "jpeg", "png", "jxl"];
+	const extensions = ["avif", "webp", "jpeg", "png"];
 	return extensions.includes(fileExtension as string);
 }
 
