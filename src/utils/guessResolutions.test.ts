@@ -69,4 +69,37 @@ describe("resolutions guessing", function () {
 			[144, 288, 576, 1152, 1600, 2304, 3200]
 		);
 	});
+
+	it("doesn't return values larger than the image size, if provided", function () {
+		assert.deepStrictEqual(
+			guessResolutions(
+				`100vw`,
+				{
+					min_viewport_size: 320,
+					max_viewport_size: 1280,
+				},
+				undefined,
+				{
+					width: 640,
+					height: 900,
+				}
+			),
+			[320, 640]
+		);
+	});
+
+	it("keeps the original image resolution if cutting out resolutions larger than it and leaving only smaller ones", function () {
+		assert.deepStrictEqual(
+			guessResolutions(
+				"100vw",
+				{ min_viewport_size: 320, max_viewport_size: 1920 },
+				undefined,
+				{
+					width: 1200,
+					height: 900,
+				}
+			),
+			[320, 640, 1200]
+		);
+	});
 });

@@ -280,13 +280,22 @@ const guessResolutions = (
 
 	gap_fills.push(...fillGaps(filtered_resolutions));
 
-	const final_resolutions = [
+	let final_resolutions = [
 		...new Set(
 			filtered_resolutions.concat(...gap_fills, ...constant_resolutions)
 		),
 	].sort(sortAscFn);
+	if (image_size) {
+		const resolutions_without_upscaling = final_resolutions.filter(
+			(r) => r <= image_size.width
+		);
+		if (resolutions_without_upscaling.length < final_resolutions.length) {
+			resolutions_without_upscaling.push(image_size.width);
+		}
+		final_resolutions = resolutions_without_upscaling;
+	}
 
-	return final_resolutions;
+	return Array.from(new Set(final_resolutions));
 };
 
 export { guessResolutions };
