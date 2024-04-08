@@ -452,6 +452,7 @@ export class KoaResponsiveImageRouter extends Router {
 			`background-size: ${background_size}`,
 			`background-position: 50%`,
 			`background-repeat: no-repeat`,
+			`width: 100%`,
 		];
 
 		if (
