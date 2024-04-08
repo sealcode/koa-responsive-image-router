@@ -227,26 +227,17 @@ export class KoaResponsiveImageRouter extends Router {
 		params: Partial<BaseImageParameters>
 	): BaseImageParameters {
 		const result: BaseImageParameters = {
-			alt: typeof params.alt !== "undefined" ? params.alt : "",
-			lossless:
-				typeof params.lossless !== "undefined"
-					? params.lossless
-					: false,
-			lazy: typeof params.lazy !== "undefined" ? params.lazy : true,
-			imgStyle:
-				typeof params.imgStyle !== "undefined" ? params.imgStyle : "",
-			targetRatio:
-				typeof params.targetRatio !== "undefined"
-					? params.targetRatio
-					: 16 / 9,
-			ratioDiffThreshold:
-				typeof params.ratioDiffThreshold !== "undefined"
-					? params.ratioDiffThreshold
-					: 0.2,
-			thumbnailSize:
-				typeof params.thumbnailSize !== "undefined"
-					? params.thumbnailSize
-					: this.defaultThumbnailSize,
+			alt: params.alt ? params.alt : "",
+			lossless: params.lossless ? params.lossless : false,
+			lazy: params.lazy ? params.lazy : true,
+			imgStyle: params.imgStyle || "",
+			targetRatio: params.targetRatio ? params.targetRatio : 16 / 9,
+			ratioDiffThreshold: params.ratioDiffThreshold
+				? params.ratioDiffThreshold
+				: 0.2,
+			thumbnailSize: params.thumbnailSize
+				? params.thumbnailSize
+				: this.defaultThumbnailSize,
 			crop: false,
 			style: "",
 		};
@@ -348,7 +339,7 @@ export class KoaResponsiveImageRouter extends Router {
 			thumbnailSize: params.thumbnailSize || this.defaultThumbnailSize,
 		});
 
-		const hash = await this.getHash(
+		const hash = this.getHash(
 			path,
 			resolutions,
 			imageParams.targetRatio,
