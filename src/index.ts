@@ -389,17 +389,6 @@ export class KoaResponsiveImageRouter extends Router {
 		let imageHeight = imgDimensions.height;
 		let objectWidth: number = imgDimensions.width;
 
-		const thumbnailExtension = "jpeg";
-
-		const thumbnailTask: Task = {
-			hash: hash,
-			resolution: imageParams.thumbnailSize,
-			fileExtension: thumbnailExtension,
-			cropData: crop,
-		};
-
-		const lowResCacheBase64 = this.cacheManager.isInCache(thumbnailTask);
-
 		if (container) {
 			ImageInfoTool.updateProperty(hash, "container", container);
 
@@ -419,7 +408,7 @@ export class KoaResponsiveImageRouter extends Router {
 					(imageParams.imgStyle || "") +
 					`object-fit: ${
 						container.objectFit || "contain"
-					}; width: 100%; height: 100%;`;
+					}; width: 100%; height: 100%; backdrop-filter: blur(5px)`;
 			} else {
 				throw new Error("Invalid container dimensions");
 			}
@@ -443,73 +432,36 @@ export class KoaResponsiveImageRouter extends Router {
 			`background-size: ${background_size}`,
 			`background-position: 50%`,
 			`background-repeat: no-repeat`,
-			`width: 100%`,
+			`width: ${container?.width ? container.width + "px" : "100%"}`,
 		];
 
-		if (
-			lowResCacheBase64 &&
-			ImageInfoTool.getImageData(hash).thumbnailSize <=
-				this.cacheManagerResolutionThreshold
-		) {
-			const uniqueId = this.generateUniqueId();
+		html = "<picture ";
 
-			let thumbnail_display_width = "calc(100% + 10px)";
-			let thumbnail_display_height = "calc(100% + 10px)";
-			if (container) {
-				const fitted_image_size = fit(
-					container,
-					imgDimensions,
-					container.objectFit || "contain"
-				);
-				thumbnail_display_width = `${
-					(fitted_image_size.width / container.width) * 100
-				}%`;
-				thumbnail_display_height = `${
-					(fitted_image_size.height / container.height) * 100
-				}%`;
-			}
+		html += ` style="`;
+		if (params.thumbnailSize !== 0) {
+			const thumbnailExtension = "jpeg";
 
-			html += `
-			<style>
-				#${uniqueId}::after {
-					content: "";
-					display: block;
-					position: absolute;
-					top: -5px;
-					left: -5px;
-					width: ${thumbnail_display_width};
-					height: ${thumbnail_display_height};
-					z-index: -1;
-					-webkit-background-size: cover;
-					-moz-background-size: cover;
-					-o-background-size: cover;
-					background-size: cover;
-					background-repeat: no-repeat;
-					background-image: url(data:image/*;base64,${lowResCacheBase64});
-					-webkit-filter: blur(5px);
-					-moz-filter: blur(5px);
-					-o-filter: blur(5px);
-					-ms-filter: blur(5px);
-					filter: blur(5px);
-				}
-			</style>`;
+			const thumbnailTask: Task = {
+				hash: hash,
+				resolution: imageParams.thumbnailSize,
+				fileExtension: thumbnailExtension,
+				cropData: crop,
+			};
 
-			html += `<picture id="${uniqueId}"`;
-			html += ` style="`;
-
-			styles.push(`overflow: hidden`);
-			styles.push(`position: relative`);
-		} else {
-			html = "<picture ";
-			const imageURL = this.makeImageURL({
-				hash,
-				width: ImageInfoTool.getImageData(hash).thumbnailSize,
-				extension: thumbnailExtension,
-			});
-
-			html += ` style="`;
-
-			styles.push(`background-image: url(${imageURL})`);
+			const lowResCacheBase64 =
+				this.cacheManager.isInCache(thumbnailTask);
+			const has_cache =
+				lowResCacheBase64 &&
+				ImageInfoTool.getImageData(hash).thumbnailSize <=
+					this.cacheManagerResolutionThreshold;
+			const thumbnailURL = has_cache
+				? `data:image/*;base64,${lowResCacheBase64}`
+				: this.makeImageURL({
+						hash,
+						width: ImageInfoTool.getImageData(hash).thumbnailSize,
+						extension: thumbnailExtension,
+				  });
+			styles.push(`background-image: url(${thumbnailURL})`);
 		}
 		html += `${styles.join(";")} ${params.style || ""}"`;
 
@@ -545,7 +497,8 @@ export class KoaResponsiveImageRouter extends Router {
 			hash,
 			{ width: imageWidth, height: imageHeight },
 			imageParams.lazy,
-			imageParams.imgStyle || "width: 100%; height: 100%",
+			imageParams.imgStyle ||
+				"width: 100%; height: 100%; backdrop-filter: blur(5px)",
 			imageParams.alt,
 			resolutions
 		);
@@ -611,12 +564,6 @@ export class KoaResponsiveImageRouter extends Router {
 		}).join(" ")}" ${lazyLoading} width="${imgDimensions.width}" height="${
 			imgDimensions.height
 		}" ${imgStyle} src="${imgURL}" ${altText} />`;
-	}
-
-	private generateUniqueId() {
-		const uniqueId = `responsive-image-${this.currentId}`;
-		this.currentId += 1;
-		return uniqueId;
 	}
 
 	public calculateImageSizeForContainer(
