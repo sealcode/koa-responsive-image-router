@@ -268,7 +268,12 @@ export class KoaResponsiveImageRouter extends Router {
 	}) {
 		if (!resolutions) {
 			if (sizesAttr) {
-				resolutions = guessResolutions(sizesAttr);
+				resolutions = guessResolutions(
+					sizesAttr,
+					{},
+					undefined,
+					original_image_size
+				);
 			} else if (container) {
 				resolutions = guessResolutions(
 					`${container.width}px`,
