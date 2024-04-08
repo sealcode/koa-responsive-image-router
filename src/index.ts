@@ -383,10 +383,10 @@ export class KoaResponsiveImageRouter extends Router {
 		};
 
 		const extensions = [
-			"jxl",
+			...(imageParams.lossless ? [] : ["jxl", "avif"]),
 			"webp",
 			"png",
-			...(imageParams.lossless ? [] : ["jpg", "avif"]),
+			...(imageParams.lossless ? [] : ["jpg"]),
 		];
 
 		let imageWidth = imgDimensions.width;
