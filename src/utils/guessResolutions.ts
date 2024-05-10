@@ -195,7 +195,7 @@ const getRanges = ({
 	return sortRanges(ranges, constant_resolutions);
 };
 
-const guessResolutions = (
+export function guessResolutions(
 	sizes_attr: string,
 	{
 		min_viewport_size = 320,
@@ -203,7 +203,7 @@ const guessResolutions = (
 	}: resolutionGuessOptions = {},
 	container?: Container,
 	image_size?: { width: number; height: number }
-): number[] => {
+): number[] {
 	const gap_fills: number[] = [],
 		resolutions: number[] = [],
 		constant_resolutions: number[] = [];
@@ -295,7 +295,54 @@ const guessResolutions = (
 		final_resolutions = resolutions_without_upscaling;
 	}
 
-	return Array.from(new Set(final_resolutions));
-};
+	const result = Array.from(new Set(final_resolutions));
+	return result;
+}
 
-export { guessResolutions };
+export function prepareResolutions({
+	sizesAttr,
+	resolutions,
+	container,
+	original_image_size,
+	thumbnailSize,
+}: {
+	sizesAttr?: string;
+	resolutions?: number[];
+	container?: Container;
+	original_image_size: { width: number; height: number };
+	thumbnailSize: number;
+}) {
+	if (!resolutions) {
+		if (sizesAttr) {
+			resolutions = guessResolutions(
+				sizesAttr,
+				{},
+				container,
+				original_image_size
+			);
+		} else if (container) {
+			resolutions = guessResolutions(
+				`${container.width}px`,
+				{},
+				container,
+				original_image_size
+			);
+		} else {
+			throw new Error(
+				"Invalid parameters. You must provide at least either: (resolutions) or (sizesAttr) or (container)"
+			);
+		}
+	}
+	resolutions.push(thumbnailSize);
+	resolutions = Array.from(
+		new Set(
+			resolutions.filter((width) => width <= original_image_size.width)
+		)
+	);
+	if (resolutions.filter((l) => l != thumbnailSize).length == 0) {
+		// no resolutions other than the thumbnail, let's add at least one
+		resolutions = [original_image_size.width];
+	}
+	resolutions = resolutions.map((l) => Math.round(l));
+	return resolutions;
+}

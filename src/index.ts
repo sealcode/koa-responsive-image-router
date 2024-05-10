@@ -16,7 +16,7 @@ import {
 } from "./types/imageRouter";
 import { ImageInfoTool } from "./utils/ImageInfoTool";
 import { CacheManager } from "./utils/cache/CacheManager";
-import { guessResolutions } from "./utils/guessResolutions";
+import { prepareResolutions } from "./utils/guessResolutions";
 import {
 	checkMaxConcurrent,
 	encodeFilename,
@@ -243,56 +243,6 @@ export class KoaResponsiveImageRouter extends Router {
 		return result;
 	}
 
-	prepareResolutions({
-		sizesAttr,
-		resolutions,
-		container,
-		original_image_size,
-		thumbnailSize,
-	}: {
-		sizesAttr?: string;
-		resolutions?: number[];
-		container?: Container;
-		original_image_size: { width: number; height: number };
-		thumbnailSize: number;
-	}) {
-		if (!resolutions) {
-			if (sizesAttr) {
-				resolutions = guessResolutions(
-					sizesAttr,
-					{},
-					undefined,
-					original_image_size
-				);
-			} else if (container) {
-				resolutions = guessResolutions(
-					`${container.width}px`,
-					{},
-					container,
-					original_image_size
-				);
-			} else {
-				throw new Error(
-					"Invalid parameters. You must provide at least either: (resolutions) or (sizesAttr) or (container)"
-				);
-			}
-		}
-		resolutions.push(thumbnailSize);
-		resolutions = Array.from(
-			new Set(
-				resolutions.filter(
-					(width) => width <= original_image_size.width
-				)
-			)
-		);
-		if (resolutions.filter((l) => l != thumbnailSize).length == 0) {
-			// no resolutions other than the thumbnail, let's add at least one
-			resolutions = [original_image_size.width];
-		}
-		resolutions = resolutions.map((l) => Math.round(l));
-		return resolutions;
-	}
-
 	/**
 	 * Generates an <img> tag with responsive attributes based on the provided parameters.
 	 *
@@ -329,7 +279,7 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const imageParams = this.createImageDefaultParameters(params);
 
-		const resolutions = this.prepareResolutions({
+		const resolutions = prepareResolutions({
 			...params,
 			original_image_size: {
 				width: metadata.width as number,
