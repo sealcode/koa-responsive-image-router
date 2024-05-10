@@ -1,6 +1,5 @@
 import Router from "@koa/router";
 import crypto from "crypto";
-import { stat } from "fs/promises";
 import { Middleware } from "koa";
 import { basename, extname } from "path";
 import { MONTH } from "./constants/constants";
@@ -229,7 +228,7 @@ export class KoaResponsiveImageRouter extends Router {
 		const result: BaseImageParameters = {
 			alt: params.alt ? params.alt : "",
 			lossless: params.lossless ? params.lossless : false,
-			lazy: params.lazy ? params.lazy : true,
+			lazy: params.lazy === undefined ? true : params.lazy,
 			imgStyle: params.imgStyle || "",
 			targetRatio: params.targetRatio ? params.targetRatio : 16 / 9,
 			ratioDiffThreshold: params.ratioDiffThreshold
