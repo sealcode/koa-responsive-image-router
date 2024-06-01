@@ -30,13 +30,13 @@ type resolutions = {
 	resolutions: number[];
 };
 
-export type ImageParameters = Partial<BaseImageParameters> &
+export type ImageParameters = (Partial<BaseImageParameters> &
 	(
 		| (sizesAttr & resolutions)
 		| sizesAttr
 		| (resolutions & { container: Container })
 		| { container: Container }
-	);
+	)) & { alt: string };
 
 export type Task = {
 	hash: string;
