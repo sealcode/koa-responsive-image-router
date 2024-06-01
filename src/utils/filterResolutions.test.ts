@@ -31,6 +31,7 @@ describe("Resolutions parser", function () {
 		];
 
 		const html = await imageRouter.image(example_img_path, {
+			alt: "",
 			resolutions: [
 				600, 1000, 2000, 3000, 4000, 5000, 5500, 5820, 5821, 6000, 6500,
 				8000,

@@ -76,21 +76,25 @@ async function startApp(): Promise<void> {
 		ctx.body = `
 	${navbarHTML}
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		sizesAttr: `
 					(min-width: 600px) 80vw,
 					(min-width: 400px) 90vw,
 					100vw`,
 		thumbnailSize: 100,
 	})} ${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			sizesAttr: `
 					(max-width: 300px) 100vw,
 					(max-width: 600px) 80vw,
 					(max-width: 900px) 50vw,
 					900px`,
 		})}${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			resolutions: [100, 500, 1000, 1500],
 			sizesAttr: "(max-width: 900px) 100vw, 900px",
 		})} ${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			resolutions: [2000, 3000, 1000, 6000],
 			sizesAttr: "(max-width: 900px) 100vw, 900px",
 		})}`;
@@ -106,9 +110,7 @@ async function startApp(): Promise<void> {
 			const path = `${ratios_path}/${i}.jpeg`;
 
 			promises.push(
-				imageRouter.image(path, {
-					sizesAttr: `50vw`,
-				})
+				imageRouter.image(path, { alt: "", sizesAttr: `50vw` })
 			);
 		}
 
@@ -126,6 +128,7 @@ async function startApp(): Promise<void> {
 		${navbarHTML}
 
 		${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			resolutions: [200, 500, 1000, 1500],
 			sizesAttr: "(max-width: 200px) 100vw, 200px",
 			lazy: false,
@@ -133,6 +136,7 @@ async function startApp(): Promise<void> {
 			thumbnailSize: 20,
 		})}
 		${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600px) 100vw, 600px",
 			lazy: false,
@@ -140,6 +144,7 @@ async function startApp(): Promise<void> {
 			thumbnailSize: 10,
 		})}
 		${await imageRouter.image(paths.exampleImg, {
+			alt: "",
 			resolutions: [2000, 3000, 1000, 6000],
 			sizesAttr: "(max-width: 800px) 100vw, 800px",
 			lazy: false,
@@ -164,6 +169,7 @@ async function startApp(): Promise<void> {
 		ctx.body = `
 		${navbarHTML}
 		${await imageRouter.image(paths.exampleSmartCropImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600) 100vw, 600px",
 			lazy: false,
@@ -172,6 +178,7 @@ async function startApp(): Promise<void> {
 		})}
 
 		${await imageRouter.image(paths.exampleSmartCropImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600) 100vw, 605px",
 			lazy: false,
@@ -180,6 +187,7 @@ async function startApp(): Promise<void> {
 		})}
 
 		${await imageRouter.image(paths.exampleSmartCropImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600) 100vw, 602px",
 			lazy: false,
@@ -188,6 +196,7 @@ async function startApp(): Promise<void> {
 		})}
 
 		${await imageRouter.image(paths.exampleSmartCropImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600px) 100vw, 600px",
 			lazy: false,
@@ -196,6 +205,7 @@ async function startApp(): Promise<void> {
 		})}
 
 		${await imageRouter.image(paths.exampleSmartCropImg, {
+			alt: "",
 			resolutions: [600, 1000, 1500, 2000],
 			sizesAttr: "(max-width: 600) 100vw, 600px",
 			lazy: false,
@@ -247,6 +257,7 @@ async function startApp(): Promise<void> {
 	<p><b>max-res: 5820</b></p>
 
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		resolutions: [
 			600, 1000, 2000, 3000, 4000, 5000, 5500, 5820, 5821, 6000, 6500,
 			8000,
@@ -257,6 +268,7 @@ async function startApp(): Promise<void> {
 	})}
 
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		resolutions: [600, 1000, 5500, 6000, 6500, 8000],
 		sizesAttr: "(max-width: 600) 100vw, 600px",
 		lazy: false,
@@ -279,6 +291,7 @@ async function startApp(): Promise<void> {
 
 	<h2>Default Image (Cover)</h2>
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		resolutions: resolutions,
 		sizesAttr: `${object_width}px`,
 		lazy: false,
@@ -287,6 +300,7 @@ async function startApp(): Promise<void> {
 
 	<h2>Container with 'cover' Object Fit</h2>
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		resolutions: resolutions,
 		lazy: false,
 		imgStyle: "width: 500px; height: 500px;",
@@ -299,6 +313,7 @@ async function startApp(): Promise<void> {
 
 	<h2>Container with 'contain' Object Fit</h2>
 	${await imageRouter.image(paths.exampleImg, {
+		alt: "",
 		resolutions: resolutions,
 		lazy: false,
 		imgStyle: "width: 500px; height: 500px;",
