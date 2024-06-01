@@ -502,7 +502,7 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const lazyLoading = lazy ? `loading="lazy"` : "";
 		imgStyle = imgStyle ? `style="${imgStyle}"` : "";
-		const altText = alt ? `alt="${alt}"` : "";
+		const altText = typeof alt == "string" ? `alt="${alt}"` : "";
 
 		return `<img class="${getImageClasses({
 			width: imgDimensions.width,
