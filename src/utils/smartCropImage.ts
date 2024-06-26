@@ -8,6 +8,7 @@ import { CacheManager } from "./cache/CacheManager";
 import { ImageInfoTool } from "./ImageInfoTool";
 import { SmartCropOptions, DirectCropOptions } from "../types/smartCropImage";
 import { CropDescription } from "../types/imageRouter";
+import { format_specific_options } from "../format-specific-options";
 
 function isSmartCropOptions(
 	value: SmartCropOptions | DirectCropOptions
@@ -68,15 +69,19 @@ async function applyCrop(
 		const randomBytesString = randomBytes(16).toString("hex");
 		const tempDest = `${tmp_path}.${randomBytesString}.cropped.${fileExtension}`;
 
-		await sharp(src)
+		let image = sharp(src)
 			.extract({
 				left: cropResult.topCrop.x,
 				top: cropResult.topCrop.y,
 				width: cropResult.topCrop.width,
 				height: cropResult.topCrop.height,
 			})
-			.resize({ width: resolution })
-			.toFile(tempDest);
+			.resize({ width: resolution });
+		const apply_options = format_specific_options[fileExtension];
+		if (apply_options) {
+			image = apply_options(image);
+		}
+		await image.toFile(tempDest);
 
 		const croppedImageBuffer = await fs.readFile(tempDest);
 		await fs.unlink(tempDest);
