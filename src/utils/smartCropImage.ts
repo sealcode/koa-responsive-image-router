@@ -46,7 +46,8 @@ async function applyCrop(
 	hash: string,
 	tmp_path: string,
 	resolution: number,
-	options: Exclude<CropDescription, false>
+	options: Exclude<CropDescription, false>,
+	fileExtension: string
 ): Promise<Buffer> {
 	const src = ImageInfoTool.getImageData(hash).originalPath;
 
@@ -65,7 +66,7 @@ async function applyCrop(
 		});
 
 		const randomBytesString = randomBytes(16).toString("hex");
-		const tempDest = `${tmp_path}.${randomBytesString}.cropped.jpeg`;
+		const tempDest = `${tmp_path}.${randomBytesString}.cropped.${fileExtension}`;
 
 		await sharp(src)
 			.extract({

@@ -216,7 +216,8 @@ export class CacheManager {
 							hash,
 							this.tmpPath,
 							resolution,
-							cropData
+							cropData,
+							fileExtension
 						);
 						const taskHash = this.getTaskHash(task);
 						await this.set(taskHash, resolution, imageBuffer);
