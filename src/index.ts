@@ -265,7 +265,7 @@ export class KoaResponsiveImageRouter extends Router {
 	 * @return {Promise<string>} - A string representing the HTML <img> tag with appropriate attributes and CSS classes.
 	 */
 	async image(path: string, params: ImageParameters): Promise<string> {
-		let container: Container | null = hasField("container", params)
+		const container: Container | null = hasField("container", params)
 			? params.container
 			: null;
 
@@ -455,6 +455,34 @@ export class KoaResponsiveImageRouter extends Router {
 		html += "</picture> ";
 
 		return html;
+	}
+
+	async singleImage(
+		path: string,
+		imageSize: number,
+		fileExtension: string,
+		lossless: boolean
+	): Promise<string> {
+		if (!path || !imageSize || !fileExtension) {
+			return "";
+		}
+
+		const resolutions = [imageSize];
+
+		const hash = this.getHash(path, resolutions, 1, 1, null, false);
+
+		ImageInfoTool.initImageData(hash);
+		ImageInfoTool.updateProperty(hash, "resolutions", resolutions);
+		ImageInfoTool.updateProperty(hash, "lossless", lossless);
+		ImageInfoTool.updateProperty(hash, "originalPath", path);
+
+		const imgURL = this.makeImageURL({
+			hash,
+			width: resolutions[0],
+			extension: fileExtension,
+		});
+
+		return imgURL;
 	}
 
 	private generateResponsiveImageSources(

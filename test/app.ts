@@ -73,31 +73,39 @@ async function startApp(): Promise<void> {
 	router.get("/", async (ctx) => {
 		const currentPage = "sizes";
 		const navbarHTML = generateNavbar(currentPage);
-		ctx.body = `
-	${navbarHTML}
-	${await imageRouter.image(paths.exampleImg, {
-		alt: "",
-		sizesAttr: `
+		const single_image_url = await imageRouter.singleImage(
+			paths.exampleImg,
+			200,
+			"jpeg",
+			false
+		);
+		ctx.body = /* HTML */ ` ${navbarHTML} Example single-file image:
+			<a href="${single_image_url}">${single_image_url}</a>
+			${await imageRouter.image(paths.exampleImg, {
+				alt: "",
+				sizesAttr: `
 					(min-width: 600px) 80vw,
 					(min-width: 400px) 90vw,
 					100vw`,
-		thumbnailSize: 100,
-	})} ${await imageRouter.image(paths.exampleImg, {
-			alt: "",
-			sizesAttr: `
+				thumbnailSize: 100,
+			})}
+			${await imageRouter.image(paths.exampleImg, {
+				alt: "",
+				sizesAttr: `
 					(max-width: 300px) 100vw,
 					(max-width: 600px) 80vw,
 					(max-width: 900px) 50vw,
 					900px`,
-		})}${await imageRouter.image(paths.exampleImg, {
-			alt: "",
-			resolutions: [100, 500, 1000, 1500],
-			sizesAttr: "(max-width: 900px) 100vw, 900px",
-		})} ${await imageRouter.image(paths.exampleImg, {
-			alt: "",
-			resolutions: [2000, 3000, 1000, 6000],
-			sizesAttr: "(max-width: 900px) 100vw, 900px",
-		})}`;
+			})}${await imageRouter.image(paths.exampleImg, {
+				alt: "",
+				resolutions: [100, 500, 1000, 1500],
+				sizesAttr: "(max-width: 900px) 100vw, 900px",
+			})}
+			${await imageRouter.image(paths.exampleImg, {
+				alt: "",
+				resolutions: [2000, 3000, 1000, 6000],
+				sizesAttr: "(max-width: 900px) 100vw, 900px",
+			})}`;
 	});
 
 	const ratios_path = `${paths.inputDir}/ratios`,

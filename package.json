@@ -12,7 +12,7 @@
 		"test": "npx mocha --require ts-node/register --exit",
 		"clean-coverage": "rm -rf coverage .nyc_output .xunit",
 		"coverage": "npm run clean-coverage && nyc mocha",
-		"test-reports": "npm run clean-coverage && nyc --reporter clover mocha --reporter xunit --reporter-option output=.xunit",
+		"test-reports": "npm run clean-coverage && nyc --reporter clover mocha --reporter xunit --reporter-option output=.xunit --exit",
 		"coverage-html": "npm run test-reports && nyc report --reporter lcov && xdg-open coverage/lcov-report/index.html"
 	},
 	"tmux-scripts": {
