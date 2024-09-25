@@ -26,6 +26,8 @@ import {
 import { fit } from "object-fit-math";
 import { hasField } from "@sealcode/ts-predicates";
 
+export type Format = "jpeg" | "webp" | "avif" | "png";
+
 export class KoaResponsiveImageRouter extends Router {
 	private router: Router;
 	// Store low resolution thumbnail
@@ -38,6 +40,8 @@ export class KoaResponsiveImageRouter extends Router {
 	private currentId = 0;
 	private staticPath;
 	private cacheManagerResolutionThreshold;
+	public formatsForLossy: Format[];
+	public formatsForLossless: Format[];
 
 	/**
 	 * @param {string} static_path - static url
@@ -73,6 +77,8 @@ export class KoaResponsiveImageRouter extends Router {
 		maxAge,
 		hashSeed,
 		thumbnailMaxCacheSize,
+		formatsForLossy = ["avif", "webp", "jpeg"],
+		formatsForLossless = ["webp", "png"],
 	}: {
 		staticPath: string;
 		thumbnailSize: number;
@@ -86,12 +92,17 @@ export class KoaResponsiveImageRouter extends Router {
 		maxAge?: number;
 		hashSeed?: string;
 		thumbnailMaxCacheSize?: number;
+		formatsForLossy?: Format[];
+		formatsForLossless?: Format[];
 	}) {
 		super();
 		this.router = new Router();
 		this.staticPath = staticPath;
 		this.cacheManagerResolutionThreshold = cacheManagerResolutionThreshold;
 		this.defaultThumbnailSize = thumbnailSize;
+
+		this.formatsForLossy = formatsForLossy;
+		this.formatsForLossless = formatsForLossless;
 
 		const localCachePatameters: FilruParameters = {
 			storagePath: imageStoragePath,
@@ -327,12 +338,9 @@ export class KoaResponsiveImageRouter extends Router {
 			height: metadata.height || 100,
 		};
 
-		const extensions = [
-			...(imageParams.lossless ? [] : ["avif"]),
-			"webp",
-			"png",
-			...(imageParams.lossless ? [] : ["jpeg"]),
-		];
+		const extensions = imageParams.lossless
+			? this.formatsForLossless
+			: this.formatsForLossy;
 
 		let imageWidth = imgDimensions.width;
 		let imageHeight = imgDimensions.height;
