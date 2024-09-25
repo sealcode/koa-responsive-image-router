@@ -23,6 +23,7 @@ import { isCorrectExtension } from "../utils";
 import { ImageInfoTool } from "../ImageInfoTool";
 import { applyCrop, getSmartCropResult } from "../smartCropImage";
 import sharp from "sharp";
+import { format_specific_options } from "../../format-specific-options";
 
 export class CacheManager {
 	private memoryCache: ThumbnailCache;
@@ -269,10 +270,14 @@ export class CacheManager {
 		const imageData = ImageInfoTool.getImageData(hash);
 		const { originalPath, lossless } = imageData;
 
-		return await sharp(originalPath)
+		let image = sharp(originalPath)
 			.resize(resolution)
-			.toFormat(fileExtension, lossless ? { lossless: true } : {})
-			.toBuffer();
+			.toFormat(fileExtension, lossless ? { lossless: true } : {});
+		const apply_options = format_specific_options[fileExtension];
+		if (apply_options) {
+			image = apply_options(image);
+		}
+		return image.toBuffer();
 	}
 
 	private chcekResolution(hash: string, resolution: number) {

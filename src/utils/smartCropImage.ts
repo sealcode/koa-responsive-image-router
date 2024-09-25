@@ -54,10 +54,14 @@ async function applyCrop(
 
 	if (isDirectCropOptions(options)) {
 		const { width, height, x, y } = options;
-		const croppedImageBuffer = await sharp(src)
+		let image = sharp(src)
 			.extract({ left: x, top: y, width, height })
-			.resize({ width: resolution })
-			.toBuffer();
+			.resize({ width: resolution });
+		const apply_options = format_specific_options[fileExtension];
+		if (apply_options) {
+			image = apply_options(image);
+		}
+		const croppedImageBuffer = image.toBuffer();
 
 		return croppedImageBuffer;
 	} else if (isSmartCropOptions(options)) {
