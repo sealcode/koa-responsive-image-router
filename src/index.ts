@@ -546,9 +546,11 @@ export class KoaResponsiveImageRouter extends Router {
 			targetRatio: ImageInfoTool.getImageData(hash).targetRatio,
 			ratioDiffThreshold:
 				ImageInfoTool.getImageData(hash).ratioDiffThreshold,
-		}).join(" ")}" ${lazyLoading} width="${imgDimensions.width}" height="${
+		}).join(" ")}" ${lazyLoading} width="${
+			imgDimensions.width
+		}" height="${Math.round(
 			imgDimensions.height
-		}" ${imgStyle} src="${imgURL}" ${altText} />`;
+		)}" ${imgStyle} src="${imgURL}" ${altText} />`;
 	}
 
 	public calculateImageSizeForContainer(
