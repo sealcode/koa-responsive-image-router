@@ -1,8 +1,8 @@
 import Filru from "filru";
-import { FilruParameters } from "../../types/cacheManager";
-import getProxiedFilru from "../proxiedFilru";
+import { FilruParameters } from "../../types/cacheManager.js";
+import getProxiedFilru from "../proxiedFilru.js";
 import _locreq from "locreq";
-export const locreq = _locreq(__dirname);
+export const locreq = _locreq(import.meta.dirname);
 
 export class LocalCache {
 	private storagePath = locreq.resolve("");

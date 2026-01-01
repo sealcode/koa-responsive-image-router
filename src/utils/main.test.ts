@@ -3,10 +3,10 @@ import assert from "node:assert";
 import fs from "fs";
 import Koa from "koa";
 import Router from "@koa/router";
-import { KoaResponsiveImageRouter } from "..";
+import { KoaResponsiveImageRouter } from "../index.js";
 import _locreq from "locreq";
 import sharp from "sharp";
-const locreq = _locreq(__dirname);
+const locreq = _locreq(import.meta.dirname);
 
 describe("image serving", () => {
 	it("Serves the correct image format when cropping", async () => {

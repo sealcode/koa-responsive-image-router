@@ -3,8 +3,8 @@ import {
 	CropResult,
 	FilruParameters,
 	JsonCropResultShape,
-} from "../../types/cacheManager";
-import { LocalCache } from "./LocalCache";
+} from "../../types/cacheManager.js";
+import { LocalCache } from "./LocalCache.js";
 
 export class SmartcropCache extends LocalCache {
 	public async get(key: string): Promise<CropResult | null> {

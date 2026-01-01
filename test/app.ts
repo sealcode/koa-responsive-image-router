@@ -1,7 +1,7 @@
 import Koa from "koa";
 import Router from "@koa/router";
-import { KoaResponsiveImageRouter } from "../src/index";
-import { paths, imageRouterConfig } from "./config";
+import { KoaResponsiveImageRouter } from "../src/index.js";
+import { paths, imageRouterConfig } from "./config.js";
 
 const app = new Koa();
 const router = new Router();

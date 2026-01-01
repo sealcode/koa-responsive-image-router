@@ -1,29 +1,29 @@
 import Queue from "better-queue";
 import _locreq from "locreq";
-export const locreq = _locreq(__dirname);
 import hash from "object-hash";
+export const locreq = _locreq(import.meta.dirname);
 
-import { ThumbnailCache } from "./ThumbnailCache";
-import { SmartcropCache } from "./SmartCropCache";
-import { DiskImageCache } from "./DiskImageCache";
+import { DiskImageCache } from "./DiskImageCache.js";
+import { SmartcropCache } from "./SmartCropCache.js";
+import { ThumbnailCache } from "./ThumbnailCache.js";
 
+import sharp from "sharp";
+import { format_specific_options } from "../../format-specific-options.js";
 import {
 	FilruParameters,
 	Task,
 	ThumbnailCacheParams,
-} from "../../types/cacheManager";
-import { correctExtension } from "../../types/imageRouter";
+} from "../../types/cacheManager.js";
+import { correctExtension } from "../../types/imageRouter.js";
+import { ImageInfoTool } from "../ImageInfoTool.js";
+import { applyCrop, getSmartCropResult } from "../smartCropImage.js";
+import { isCorrectExtension } from "../utils.js";
 import {
 	CropResult,
 	ImageMap,
 	SmartcropMap,
 	SmartcropTask,
-} from "./../../types/cacheManager";
-import { isCorrectExtension } from "../utils";
-import { ImageInfoTool } from "../ImageInfoTool";
-import { applyCrop, getSmartCropResult } from "../smartCropImage";
-import sharp from "sharp";
-import { format_specific_options } from "../../format-specific-options";
+} from "./../../types/cacheManager.js";
 
 export class CacheManager {
 	private memoryCache: ThumbnailCache;

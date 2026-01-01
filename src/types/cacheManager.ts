@@ -1,6 +1,9 @@
-import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
+import {
+	DirectCropOptions,
+	SmartCropOptions,
+} from "../utils/smartCropImage.js";
 import { predicates } from "@sealcode/ts-predicates";
-import { CropDescription } from "./imageRouter";
+import { CropDescription } from "./imageRouter.js";
 
 // Definition of the image data structure stored in the cache
 export type CacheImageData = {

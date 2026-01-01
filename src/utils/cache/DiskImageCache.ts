@@ -1,7 +1,7 @@
-import { FilruParameters } from "../../types/cacheManager";
-import { LocalCache } from "./LocalCache";
+import { FilruParameters } from "../../types/cacheManager.js";
+import { LocalCache } from "./LocalCache.js";
 import _locreq from "locreq";
-export const locreq = _locreq(__dirname);
+export const locreq = _locreq(import.meta.dirname);
 
 export class DiskImageCache extends LocalCache {
 	constructor(params: FilruParameters) {

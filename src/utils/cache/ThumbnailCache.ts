@@ -1,5 +1,5 @@
 import { LRUCache } from "lru-cache";
-import { ThumbnailCacheParams } from "../../types/cacheManager";
+import { ThumbnailCacheParams } from "../../types/cacheManager.js";
 
 export class ThumbnailCache {
 	private cache: LRUCache<string, Buffer>;

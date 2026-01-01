@@ -4,8 +4,8 @@ import {
 	Ranges,
 	Unit,
 	resolutionGuessOptions,
-} from "../types/guessResolutions";
-import { Container } from "../types/imageRouter";
+} from "../types/guessResolutions.js";
+import { Container } from "../types/imageRouter.js";
 
 const sortAscFn = (a: number, b: number) => a - b;
 

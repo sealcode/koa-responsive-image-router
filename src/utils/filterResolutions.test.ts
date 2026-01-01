@@ -1,9 +1,9 @@
 import assert from "assert";
-import { KoaResponsiveImageRouter } from "..";
+import { KoaResponsiveImageRouter } from "../index.js";
 import { JSDOM } from "jsdom";
-import { imageRouterConfig, paths } from "../../test/config";
+import { imageRouterConfig, paths } from "../../test/config.js";
 import _locreq from "locreq";
-const locreq = _locreq(__dirname);
+const locreq = _locreq(import.meta.dirname);
 
 // const imageRouter = new KoaResponsiveImageRouter(
 // 	"/static/images",

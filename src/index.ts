@@ -1,30 +1,31 @@
 import Router from "@koa/router";
+import { hasField } from "@sealcode/ts-predicates";
 import crypto from "crypto";
+import { htmlEscape } from "escape-goat";
 import { Middleware } from "koa";
+import { fit } from "object-fit-math";
 import { basename, extname } from "path";
-import { MONTH } from "./constants/constants";
+import { MONTH } from "./constants/constants.js";
 import {
 	FilruParameters,
 	Task,
 	ThumbnailCacheParams,
-} from "./types/cacheManager";
+} from "./types/cacheManager.js";
 import {
 	BaseImageParameters,
 	Container,
 	CropDescription,
 	ImageParameters,
-} from "./types/imageRouter";
-import { ImageInfoTool } from "./utils/ImageInfoTool";
-import { CacheManager } from "./utils/cache/CacheManager";
-import { prepareResolutions } from "./utils/guessResolutions";
+} from "./types/imageRouter.js";
+import { ImageInfoTool } from "./utils/ImageInfoTool.js";
+import { CacheManager } from "./utils/cache/CacheManager.js";
+import { prepareResolutions } from "./utils/guessResolutions.js";
 import {
 	checkMaxConcurrent,
 	encodeFilename,
 	getImageClasses,
 	isCorrectExtension,
-} from "./utils/utils";
-import { fit } from "object-fit-math";
-import { hasField } from "@sealcode/ts-predicates";
+} from "./utils/utils.js";
 
 export type Format = "jpeg" | "webp" | "avif" | "png";
 
@@ -417,7 +418,7 @@ export class KoaResponsiveImageRouter extends Router {
 						hash,
 						width: ImageInfoTool.getImageData(hash).thumbnailSize,
 						extension: thumbnailExtension,
-				  });
+					});
 			styles.push(`background-image: url(${thumbnailURL})`);
 		}
 		html += `${styles.join(";")} ${params.style || ""}"`;
@@ -436,7 +437,7 @@ export class KoaResponsiveImageRouter extends Router {
 					? Math.min(
 							fitted_image_size.width,
 							metadata.width as number
-					  )
+						)
 					: objectWidth
 			}px`;
 		}
@@ -538,7 +539,8 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const lazyLoading = lazy ? `loading="lazy"` : "";
 		imgStyle = imgStyle ? `style="${imgStyle}"` : "";
-		const altText = typeof alt == "string" ? `alt="${alt}"` : "";
+		const altText =
+			typeof alt == "string" ? `alt="${htmlEscape(alt)}"` : "";
 
 		return `<img class="${getImageClasses({
 			width: imgDimensions.width,

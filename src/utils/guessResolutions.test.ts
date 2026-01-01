@@ -1,4 +1,4 @@
-import { guessResolutions, prepareResolutions } from "./guessResolutions";
+import { guessResolutions } from "./guessResolutions.js";
 import assert from "assert";
 
 describe("resolutions guessing", function () {

@@ -1,6 +1,9 @@
 import sharp from "sharp";
 
-import { DirectCropOptions, SmartCropOptions } from "../utils/smartCropImage";
+import {
+	DirectCropOptions,
+	SmartCropOptions,
+} from "../utils/smartCropImage.js";
 
 export type CropDescription = SmartCropOptions | DirectCropOptions | false;
 

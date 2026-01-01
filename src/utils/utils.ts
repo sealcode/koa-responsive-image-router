@@ -1,4 +1,4 @@
-import { correctExtension, ImageRatioClass } from "../types/imageRouter";
+import { correctExtension, ImageRatioClass } from "../types/imageRouter.js";
 import { extname, basename } from "path";
 import os from "os";
 

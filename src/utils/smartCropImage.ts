@@ -1,14 +1,17 @@
-import { CropResult } from "./../types/cacheManager";
+import { CropResult } from "./../types/cacheManager.js";
 import sharp from "sharp";
 import smartcrop from "smartcrop-sharp";
 import { Buffer } from "buffer";
 import fs from "fs/promises";
 import { randomBytes } from "crypto";
-import { CacheManager } from "./cache/CacheManager";
-import { ImageInfoTool } from "./ImageInfoTool";
-import { SmartCropOptions, DirectCropOptions } from "../types/smartCropImage";
-import { CropDescription } from "../types/imageRouter";
-import { format_specific_options } from "../format-specific-options";
+import { CacheManager } from "./cache/CacheManager.js";
+import { ImageInfoTool } from "./ImageInfoTool.js";
+import {
+	SmartCropOptions,
+	DirectCropOptions,
+} from "../types/smartCropImage.js";
+import { CropDescription } from "../types/imageRouter.js";
+import { format_specific_options } from "../format-specific-options.js";
 
 function isSmartCropOptions(
 	value: SmartCropOptions | DirectCropOptions

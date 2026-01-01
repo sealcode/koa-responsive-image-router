@@ -3,7 +3,7 @@ import * as path from "path";
 const projectRoot: string = process.cwd();
 
 import _locreq from "locreq";
-const locreq = _locreq(__dirname);
+const locreq = _locreq(import.meta.dirname);
 
 export const paths = {
 	tmpImages: "/tmp/images",

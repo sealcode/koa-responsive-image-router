@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { ImageData } from "../types/imageRouter";
+import { ImageData } from "../types/imageRouter.js";
 
 export const ImageInfoTool = new (class {
 	hashToImageData: Record<string, ImageData> = {};

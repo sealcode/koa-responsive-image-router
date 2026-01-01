@@ -1,6 +1,6 @@
-import { KoaResponsiveImageRouter } from "..";
+import { KoaResponsiveImageRouter } from "../index.js";
 import assert from "assert";
-import { imageRouterConfig, paths } from "../../test/config";
+import { imageRouterConfig, paths } from "../../test/config.js";
 
 describe("calculateImageSizeForContainer", () => {
 	// const imageRouter = new KoaResponsiveImageRouter(
