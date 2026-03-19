@@ -10,7 +10,7 @@
 		"prepare": "npm run build",
 		"typecheck": "tsc --noEmit -p ./",
 		"watch": "multiple-scripts-tmux -p watch",
-		"test": "npx mocha  --exit",
+		"test": "npm run build && mocha \"lib/**/*.test.js\" --exit",
 		"clean-coverage": "rm -rf coverage .nyc_output .xunit",
 		"coverage": "npm run clean-coverage && nyc mocha",
 		"test-reports": "npm run clean-coverage && nyc --reporter clover mocha --reporter xunit --reporter-option output=.xunit --exit",
