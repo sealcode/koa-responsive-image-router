@@ -3,8 +3,11 @@ import { hasField } from "@sealcode/ts-predicates";
 import crypto from "crypto";
 import { htmlEscape } from "escape-goat";
 import { Middleware } from "koa";
+import fs from "node:fs";
+import path from "node:path";
 import { fit } from "object-fit-math";
 import { basename, extname } from "path";
+import type sharp from "sharp";
 import { MONTH } from "./constants/constants.js";
 import {
 	FilruParameters,
@@ -37,34 +40,12 @@ export class KoaResponsiveImageRouter extends Router {
 	private nginxWarningDisplayed = false;
 	// Generated thumbnail size in pixels
 	private defaultThumbnailSize: number;
-	// id for thumbnail
-	private currentId = 0;
+	private svgHashToPath: Record<string, string | undefined> = {};
 	private staticPath;
 	private cacheManagerResolutionThreshold;
 	public formatsForLossy: Format[];
 	public formatsForLossless: Format[];
 
-	/**
-	 * @param {string} static_path - static url
-	 * @param {string} thumbnailSize - thumbnail size in pixels
-	 * @param {number} [cacheManagerResolutionThreshold] - Threshold for
-	 * determining whether images should be stored in memory or on disk in the
-	 * cache manager. It represents the image size in pixels, and images larger
-	 * than this threshold will be stored on disk, while smaller images will be
-	 * stored in memory.
-	 * @param {string} imageStoragePath - cache directory for images
-	 * @param {string} smartCropStoragePath - cache directory for smartcrop results
-	 * @param {number} [maxImagesConcurrent] - number of threads
-	 * @param {number} [diskImageCacheSize] - max allowed size of the cache on disk in
-	 * mega bytes. (default: 50 MB)
-	 * @param {number} [smartCropCacheSize] - max allowed size of the cache on disk in
-	 * mega bytes. (default: 50 MB)
-	 * @param {number} [pruneInterval] - interval to run cache invalidation in
-	 * @param {number} [maxAge] - max allowed age of cached items in seconds.
-	 * milliseconds. (default: 5 minutes)
-	 * @param {number} [hashSeed] - seed for hashing
-	 * @param {number} [thumbnailMaxCacheSize] - max cache size for thumbnails
-	 */
 	constructor({
 		staticPath,
 		thumbnailSize,
@@ -134,6 +115,17 @@ export class KoaResponsiveImageRouter extends Router {
 			maxImagesConcurrent,
 			cacheManagerResolutionThreshold
 		);
+
+		this.router.get("/svg/:hash/:filename", async (ctx) => {
+			const file_path = this.svgHashToPath[ctx.params.hash];
+			if (!file_path) {
+				ctx.status = 404;
+				ctx.body = "Not found";
+				return;
+			}
+			ctx.type = path.extname(file_path);
+			ctx.body = fs.createReadStream(file_path);
+		});
 
 		this.router.get("/:hash/:filename", async (ctx) => {
 			// Display NGINX warning if not using a caching proxy
@@ -216,6 +208,12 @@ export class KoaResponsiveImageRouter extends Router {
 		return result;
 	}
 
+	private makeSVGURL(path: string): string {
+		const hash = this.getSVGHash(path);
+		const result = `${this.staticPath}/svg/${hash}/${basename(path)}`;
+		return result;
+	}
+
 	makeNginxConfig(cache_path: string, max_size_mb: number): string {
 		return `http {
 	proxy_cache_path ${cache_path} keys_zone=cache:10m levels=1:2 inactive=90d max_size=${max_size_mb}m use_temp_path=off;
@@ -286,6 +284,9 @@ export class KoaResponsiveImageRouter extends Router {
 		}
 
 		const metadata = await ImageInfoTool.getMetadata(path);
+		if (metadata.format == "svg") {
+			return this.renderSVG(path, params, metadata);
+		}
 
 		const crop = params.crop || false;
 
@@ -366,7 +367,9 @@ export class KoaResponsiveImageRouter extends Router {
 					(imageParams.imgStyle || "") +
 					`object-fit: ${
 						container.objectFit || "contain"
-					}; width: 100%; height: 100%; backdrop-filter: blur(5px)`;
+					}; width: 100%; height: 100%; ${
+						metadata.hasAlpha ? "" : `backdrop-filter: blur(5px)`
+					}`;
 			} else {
 				throw new Error("Invalid container dimensions");
 			}
@@ -418,10 +421,12 @@ export class KoaResponsiveImageRouter extends Router {
 						hash,
 						width: ImageInfoTool.getImageData(hash).thumbnailSize,
 						extension: thumbnailExtension,
-					});
-			styles.push(`background-image: url(${thumbnailURL})`);
+				  });
+			if (!metadata.hasAlpha) {
+				styles.push(`background-image: url(${thumbnailURL})`);
+			}
 		}
-		html += `${styles.join(";")} ${params.style || ""}"`;
+		html += `${styles.join(";")}; ${params.style || ""}"`;
 
 		let sizes = "";
 		if ("sizesAttr" in params && params.sizesAttr) {
@@ -437,7 +442,7 @@ export class KoaResponsiveImageRouter extends Router {
 					? Math.min(
 							fitted_image_size.width,
 							metadata.width as number
-						)
+					  )
 					: objectWidth
 			}px`;
 		}
@@ -463,6 +468,50 @@ export class KoaResponsiveImageRouter extends Router {
 
 		html += "</picture> ";
 
+		return html;
+	}
+
+	renderSVG(path: string, params: ImageParameters, metadata: sharp.Metadata) {
+		const container: Container | null = hasField("container", params)
+			? params.container
+			: null;
+
+		const styles: string[] = [
+			`display: inline-flex`, // to prevent weird padding at the bottom of the image
+			`width: ${container?.width ? container.width + "px" : "100%"}`,
+		];
+		let html = "<picture ";
+
+		console.debug("index.ts:481", styles);
+		console.debug("index.ts:482", params.style);
+
+		html += ` style="`;
+		html += `${styles.join(";")}; ${params.style || ""}"`;
+
+		html += ">";
+
+		const imgURL = this.makeSVGURL(path);
+		const lazyLoading = params.lazy ? `loading="lazy"` : "";
+		const imgStyle = `style="height: auto; max-width: 100%; ${
+			params.imgStyle ? `${params.imgStyle}"` : ""
+		}"; object-fit: ${container?.objectFit || "contain"}`;
+		const altText =
+			typeof params.alt == "string"
+				? `alt="${htmlEscape(params.alt)}"`
+				: "";
+
+		html += `<img class="${getImageClasses({
+			width: metadata.width || 100,
+			height: metadata.height || 100,
+			targetRatio: params.targetRatio || 1,
+			ratioDiffThreshold: params.ratioDiffThreshold || 1,
+		}).join(" ")}" ${lazyLoading} width="${
+			metadata.width || 100
+		}" height="${Math.round(
+			metadata.height || 100
+		)}" ${imgStyle} src="${imgURL}" ${altText} />`;
+
+		html += "</picture> ";
 		return html;
 	}
 
@@ -629,6 +678,12 @@ export class KoaResponsiveImageRouter extends Router {
 				`
 			)
 			.digest("hex");
+	}
+
+	private getSVGHash(path: string): string {
+		const hash = crypto.createHash("SHA1").update(`${path}`).digest("hex");
+		this.svgHashToPath[hash] = path;
+		return hash;
 	}
 
 	getRoutes(): Middleware {
