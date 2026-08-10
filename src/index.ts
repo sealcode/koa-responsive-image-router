@@ -461,7 +461,9 @@ export class KoaResponsiveImageRouter extends Router {
 			{ width: imageWidth, height: imageHeight },
 			imageParams.lazy,
 			imageParams.imgStyle ||
-				"width: 100%; height: 100%; backdrop-filter: blur(5px)",
+				`width: 100%; height: 100%; ${
+					metadata.hasAlpha ? "" : `backdrop-filter: blur(5px)`
+				}`,
 			imageParams.alt,
 			resolutions
 		);
