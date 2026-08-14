@@ -145,13 +145,11 @@ export class KoaResponsiveImageRouter extends Router {
 			// Serve image if hash, resolution, and extension are valid
 			const cropData = ImageInfoTool.getImageData(hash).crop;
 			if (
-				!(
-					ImageInfoTool.getImageData(hash).resolutions.find(
-						(el: number) => el === resolution
-					) &&
-					fileExtension !== undefined &&
-					isCorrectExtension(fileExtension)
-				)
+				!ImageInfoTool.getImageData(hash).resolutions.includes(
+					resolution
+				) ||
+				fileExtension == undefined ||
+				!isCorrectExtension(fileExtension)
 			) {
 				ctx.response.status = 404;
 				return;
@@ -484,9 +482,6 @@ export class KoaResponsiveImageRouter extends Router {
 		];
 		let html = "<picture ";
 
-		console.debug("index.ts:481", styles);
-		console.debug("index.ts:482", params.style);
-
 		html += ` style="`;
 		html += `${styles.join(";")}; ${params.style || ""}"`;
 
@@ -519,17 +514,18 @@ export class KoaResponsiveImageRouter extends Router {
 
 	async singleImage(
 		path: string,
-		imageSize: number,
+		resolution: number,
 		fileExtension: string,
 		lossless: boolean
 	): Promise<string> {
-		if (!path || !imageSize || !fileExtension) {
+		if (!path || !resolution || !fileExtension) {
 			return "";
 		}
 
-		const resolutions = [imageSize];
+		const resolutions = [resolution];
 
 		const hash = this.getHash(path, resolutions, 1, 1, null, false);
+		const metadata = await ImageInfoTool.getMetadata(path);
 
 		ImageInfoTool.initImageData(hash);
 		ImageInfoTool.updateProperty(hash, "resolutions", resolutions);
@@ -538,8 +534,8 @@ export class KoaResponsiveImageRouter extends Router {
 
 		const imgURL = this.makeImageURL({
 			hash,
-			width: resolutions[0],
-			extension: fileExtension,
+			width: resolution,
+			extension: metadata.format || "jpeg",
 		});
 
 		return imgURL;

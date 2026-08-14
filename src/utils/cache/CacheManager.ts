@@ -196,40 +196,40 @@ export class CacheManager {
 	): Promise<void> {
 		try {
 			const { hash, resolution, fileExtension, cropData } = task;
-			if (
-				isCorrectExtension(fileExtension) &&
-				this.chcekResolution(hash, resolution)
-			) {
-				try {
-					if (!cropData) {
-						const imageBuffer = await this.generateImage(
-							hash,
-							resolution,
-							fileExtension
-						);
-						const taskHash = this.getTaskHash(task);
-						await this.set(taskHash, resolution, imageBuffer);
-						cb(null, imageBuffer);
-						return;
-					} else {
-						const imageBuffer = await applyCrop(
-							this,
-							hash,
-							this.tmpPath,
-							resolution,
-							cropData,
-							fileExtension
-						);
-						const taskHash = this.getTaskHash(task);
-						await this.set(taskHash, resolution, imageBuffer);
-						cb(null, imageBuffer);
-					}
-				} catch (err) {
-					console.log("err form catach index: ", err);
-					cb(err, null);
-				}
-			} else {
+			if (!isCorrectExtension(fileExtension)) {
 				cb(new Error(`Invalid image type: ${fileExtension}`), null);
+				return;
+			}
+			if (!this.chcekResolution(hash, resolution)) {
+				cb(new Error(`Invalid resolution: ${resolution}`), null);
+			}
+			try {
+				if (!cropData) {
+					const imageBuffer = await this.generateImage(
+						hash,
+						resolution,
+						fileExtension
+					);
+					const taskHash = this.getTaskHash(task);
+					await this.set(taskHash, resolution, imageBuffer);
+					cb(null, imageBuffer);
+					return;
+				} else {
+					const imageBuffer = await applyCrop(
+						this,
+						hash,
+						this.tmpPath,
+						resolution,
+						cropData,
+						fileExtension
+					);
+					const taskHash = this.getTaskHash(task);
+					await this.set(taskHash, resolution, imageBuffer);
+					cb(null, imageBuffer);
+				}
+			} catch (err) {
+				console.log("err form catach index: ", err);
+				cb(err, null);
 			}
 		} catch (error) {
 			cb(error, null);
